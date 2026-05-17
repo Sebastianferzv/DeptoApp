@@ -224,6 +224,21 @@
       pointer-events: all;
     }
 
+    .notif-card {
+      background: rgba(255,248,200,0.15);
+      border: 1.5px solid rgba(255,235,130,0.35);
+      border-radius: 14px;
+      padding: 0.65rem 1rem;
+      margin-bottom: 0.5rem;
+      color: var(--cream);
+      font-size: 0.86rem;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      line-height: 1.4;
+    }
+    .notif-icon { font-size: 1.1rem; flex-shrink: 0; }
+
     @media (min-width: 480px) {
       .modal { border-radius: 20px; margin-bottom: 2rem; }
     }
@@ -252,6 +267,8 @@
       <h1>Depto</h1>
       <p>¿Qué necesitás hoy?</p>
     </div>
+
+    <div id="notifications" style="display:none; width:100%; max-width:360px;"></div>
 
     <div class="apps-grid">
       <a href="lista.html" class="app-card">
@@ -362,6 +379,7 @@
     }
     document.getElementById('user-btn-name').textContent = name;
     showView('view-menu');
+    renderNotifications(name);
   }
 
   // ===== CHANGE USER MODAL =====
@@ -391,6 +409,55 @@
     setUser(name);
     showMenu(name);
     closeChangeModal();
+  }
+
+  // ===== NOTIFICATIONS =====
+  function _toDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  function _getThisMonday() {
+    const t = new Date(); t.setHours(0,0,0,0);
+    const day = t.getDay();
+    if (day === 0) { const n = new Date(t); n.setDate(t.getDate()+1); return n; }
+    const m = new Date(t); m.setDate(t.getDate()-(day-1)); return m;
+  }
+  function _weeksBetween(a, b) { return Math.round((b-a)/(7*24*60*60*1000)); }
+  function _getResponsible(task, monday) {
+    const start = new Date(task.start_date); start.setHours(0,0,0,0);
+    const diff = _weeksBetween(start, monday);
+    if (diff < 0 || diff % task.interval_weeks !== 0) return null;
+    const slot = Math.floor(diff / task.interval_weeks) % MEMBERS.length;
+    return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
+  }
+
+  async function renderNotifications(name) {
+    const today = _toDateStr(new Date());
+    const monday = _getThisMonday();
+    const mondayStr = _toDateStr(monday);
+    const alerts = [];
+
+    const { data: alm } = await sb.from('almuerzo_assignments')
+      .select('member_name').eq('date', today).maybeSingle();
+    if (alm?.member_name === name) {
+      alerts.push({ icon: '🍽️', text: 'Hoy te toca hacer el almuerzo' });
+    }
+
+    const { data: tareas } = await sb.from('tareas').select('*');
+    if (tareas) {
+      for (const task of tareas) {
+        const person = _getResponsible(task, monday);
+        if (person?.name === name) {
+          const done = localStorage.getItem('deptoTaskDone_' + task.id + '_' + mondayStr);
+          if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}` });
+        }
+      }
+    }
+
+    const el = document.getElementById('notifications');
+    el.style.display = alerts.length ? 'block' : 'none';
+    el.innerHTML = alerts.map(a =>
+      `<div class="notif-card"><span class="notif-icon">${a.icon}</span><span>${a.text}</span></div>`
+    ).join('');
   }
 
   // ===== PHOTO EDITING =====

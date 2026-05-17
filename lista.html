@@ -278,22 +278,20 @@
     <a href="index.html" class="btn-header">← Menú</a>
   </header>
 
-  <div id="section-pending" class="content-area active">
+  <div style="padding: 0.75rem 1rem 0;">
     <div class="section-title-bar">
       <span class="section-title">¿Qué falta en el depto?</span>
-      <button class="btn-historial" onclick="showSection('history')">Historial</button>
+      <button class="btn-historial" id="btn-section-toggle" onclick="showSection('history')">Historial</button>
     </div>
+  </div>
+
+  <div id="section-pending" class="content-area active">
     <div id="pending-list"></div>
   </div>
 
-  <div id="section-history" class="content-area" style="padding:0; padding-bottom:0; display:flex; flex-direction:column;">
-    <div class="back-bar">
-      <button class="btn-back" onclick="showSection('pending')">← Volver</button>
-    </div>
-    <div style="padding:1rem; padding-bottom:5.5rem; overflow-y:auto; flex:1;">
-      <div class="history-filters" id="history-filters"></div>
-      <div id="history-list"></div>
-    </div>
+  <div id="section-history" class="content-area">
+    <div class="history-filters" id="history-filters"></div>
+    <div id="history-list"></div>
   </div>
 
   <button class="fab" id="fab" onclick="openModal()" title="Agregar ítem">+</button>
@@ -411,8 +409,17 @@
     document.querySelectorAll('.content-area').forEach(c => c.classList.remove('active'));
     document.getElementById('section-' + name).classList.add('active');
     document.getElementById('fab').style.display = name === 'pending' ? 'flex' : 'none';
-    if (name === 'pending') renderPending();
-    if (name === 'history') { historyFilter = null; renderHistory(); }
+    const btn = document.getElementById('btn-section-toggle');
+    if (name === 'history') {
+      btn.textContent = '← Lista';
+      btn.onclick = () => showSection('pending');
+      historyFilter = null;
+      renderHistory();
+    } else {
+      btn.textContent = 'Historial';
+      btn.onclick = () => showSection('history');
+      renderPending();
+    }
   }
 
   // ===== PENDING =====

@@ -336,6 +336,20 @@
       color: var(--text-light); font-style: italic; font-size: 0.9rem;
     }
 
+    .btn-task-done {
+      background: #E8F3E8; border: 1.5px solid #4E7E4E; color: #4E7E4E;
+      border-radius: 8px; padding: 0.28rem 0.6rem; font-size: 0.76rem;
+      font-weight: bold; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .btn-task-done:hover { background: #4E7E4E; color: white; }
+    .task-done-badge {
+      font-size: 0.76rem; color: #4E7E4E; font-weight: bold;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .task-row.done .task-name { text-decoration: line-through; opacity: 0.55; }
+    .task-row.done .task-person { opacity: 0.55; }
+
     @media (min-width: 480px) {
       .modal { border-radius: 20px; margin-bottom: 2rem; }
     }
@@ -439,6 +453,17 @@
     return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
   }
 
+  const currentUser = localStorage.getItem('deptoUser');
+
+  function isDone(taskId, weekStr) {
+    return !!localStorage.getItem('deptoTaskDone_' + taskId + '_' + weekStr);
+  }
+
+  function markTaskDone(taskId, weekStr) {
+    localStorage.setItem('deptoTaskDone_' + taskId + '_' + weekStr, '1');
+    renderWeeks();
+  }
+
   // ===== DATA CACHE =====
   let tasksData = [];
 
@@ -523,14 +548,23 @@
       const isCurrent = i === 0;
       const range = formatWeekRange(monday);
 
+      const weekStr = toDateStr(monday);
       const taskRows = tasksData.map(task => {
         const person = getResponsible(task, monday);
         if (!person) return '';
+        const done = isDone(task.id, weekStr);
+        const isMyTask = isCurrent && currentUser && person.name === currentUser;
+        const actionBtn = isMyTask
+          ? (done
+              ? '<span class="task-done-badge">✓ Hecha</span>'
+              : `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${weekStr}')">✓ Completar</button>`)
+          : '';
         return `
-          <div class="task-row">
+          <div class="task-row${done && isMyTask ? ' done' : ''}">
             ${photoAvatar(person.name, 'task-avatar')}
             <div class="task-name">${esc(task.name)}</div>
             <div class="task-person">${person.name}</div>
+            ${actionBtn}
           </div>`;
       }).join('');
 
