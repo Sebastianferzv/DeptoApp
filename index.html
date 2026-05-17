@@ -441,9 +441,11 @@
   }
 
   function _getDayUrgency() {
-    const day = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
-    const d = day === 0 ? 7 : day;  // Mon=1, Sun=7
-    return (d - 1) / 6;             // Mon=0.0, Sun=1.0
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (today < _getThisMonday()) return 0; // semana aún no empezó (ej: domingo)
+    const day = today.getDay();
+    const d = day === 0 ? 7 : day; // Mon=1, Sun=7
+    return (d - 1) / 6;            // Mon=0.0, Sun=1.0
   }
 
   async function renderNotifications(name) {

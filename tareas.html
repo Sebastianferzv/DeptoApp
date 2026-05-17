@@ -481,10 +481,12 @@
   }
 
   function getUrgencyClass() {
-    const day = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
-    if (day === 0 || day >= 5) return 'urgency-high'; // Fri/Sat/Sun
-    if (day >= 3) return 'urgency-mid';               // Wed/Thu
-    return '';                                         // Mon/Tue
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    if (today < thisMonday) return ''; // semana aún no empezó (ej: domingo)
+    const day = today.getDay();
+    if (day === 0 || day >= 5) return 'urgency-high'; // Vie/Sáb/Dom
+    if (day >= 3) return 'urgency-mid';               // Mié/Jue
+    return '';                                         // Lun/Mar
   }
 
   // ===== DATA CACHE =====
