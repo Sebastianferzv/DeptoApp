@@ -315,7 +315,12 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  const SUPABASE_URL = 'https://ktpyqsywskwcwanlcukr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_-prx0KtYuJIjWb0BnxcB1w_vbo26tl4';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
   const MEMBERS = [
     { name: 'Seba',  color: '#C0664A' },
     { name: 'Fran',  color: '#6A8C69' },
@@ -331,28 +336,27 @@
 
   function memberColor(name) { return MEMBERS.find(m => m.name === name)?.color ?? '#999'; }
 
-  // Set header user info
   const av = document.getElementById('header-avatar');
   av.style.background = memberColor(currentUser);
   av.textContent = currentUser ? currentUser[0] : '';
   document.getElementById('header-name').textContent = currentUser ?? '';
 
-  // ===== STORAGE =====
-  function load(key, def) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; }
-  }
-  function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  // ===== DATA CACHE =====
+  let catalogData = [];
+  let pendingData = [];
 
-  function getCatalog() {
-    if (!localStorage.getItem('catalog')) {
-      const seed = SEED.map((name, i) => ({ id: String(i + 1), name }));
-      save('catalog', seed);
-      return seed;
-    }
-    return load('catalog', []);
+  async function ensureCatalog() {
+    const { data } = await sb.from('catalog').select('*').order('name');
+    if (data && data.length > 0) { catalogData = data; return; }
+    const { data: seeded } = await sb.from('catalog')
+      .insert(SEED.map(name => ({ name }))).select();
+    catalogData = seeded ?? [];
   }
-  const getPending = () => load('pending', []);
-  const getHistory = () => load('history', []);
+
+  async function loadPending() {
+    const { data } = await sb.from('pending').select('*').order('added_at', { ascending: false });
+    pendingData = data ?? [];
+  }
 
   // ===== HELPERS =====
   function esc(s) {
@@ -383,18 +387,18 @@
   }
 
   // ===== PENDING =====
-  function renderPending() {
-    const list = getPending().sort((a, b) => new Date(b.addedAt) - new Date(a.addedAt));
+  async function renderPending() {
+    await loadPending();
     const el = document.getElementById('pending-list');
-    if (!list.length) {
+    if (!pendingData.length) {
       el.innerHTML = '<div class="empty-state">¡Todo en orden!<br>No hay nada pendiente de comprar.</div>';
       return;
     }
-    el.innerHTML = list.map(item => `
+    el.innerHTML = pendingData.map(item => `
       <div class="item-card" id="ic-${esc(item.id)}">
         <div class="item-info">
           <div class="item-name">${esc(item.name)}</div>
-          <div class="item-meta">Agregado por ${esc(item.addedBy)} · ${timeAgo(item.addedAt)}</div>
+          <div class="item-meta">Agregado por ${esc(item.added_by)} · ${timeAgo(item.added_at)}</div>
         </div>
         <button class="btn-bought" onclick="confirmBought('${esc(item.id)}')">✓ Comprado</button>
       </div>
@@ -402,7 +406,7 @@
   }
 
   function confirmBought(id) {
-    const item = getPending().find(i => i.id === id);
+    const item = pendingData.find(i => i.id === id);
     if (!item) return;
     document.getElementById('ic-' + id).innerHTML = `
       <div class="confirm-bought">
@@ -414,24 +418,27 @@
       </div>`;
   }
 
-  function markBought(id) {
-    const pending = getPending();
-    const item = pending.find(i => i.id === id);
+  async function markBought(id) {
+    const item = pendingData.find(i => i.id === id);
     if (!item) return;
-    document.getElementById('ic-' + id).classList.add('bought-animation');
-    setTimeout(() => {
-      const history = getHistory();
-      history.unshift({ ...item, boughtBy: currentUser, boughtAt: new Date().toISOString() });
-      save('history', history);
-      save('pending', pending.filter(i => i.id !== id));
-      renderPending();
-    }, 420);
+    const card = document.getElementById('ic-' + id);
+    card.classList.add('bought-animation');
+    await new Promise(r => setTimeout(r, 420));
+    await sb.from('pending').delete().eq('id', id);
+    await sb.from('history').insert({
+      name: item.name,
+      added_by: item.added_by,
+      added_at: item.added_at,
+      bought_by: currentUser,
+      bought_at: new Date().toISOString()
+    });
+    await renderPending();
   }
 
   // ===== ADD MODAL =====
   let pickedItem = null;
 
-  function openModal() {
+  async function openModal() {
     pickedItem = null;
     document.getElementById('search-input').value = '';
     document.getElementById('btn-confirm').disabled = true;
@@ -458,11 +465,10 @@
   }
 
   function renderSuggestions(query) {
-    const catalog = getCatalog();
     const q = query.toLowerCase().trim();
-    const pendingNames = new Set(getPending().map(p => p.name.toLowerCase()));
-    const filtered = q ? catalog.filter(c => c.name.toLowerCase().includes(q)) : [...catalog];
-    const exactMatch = catalog.find(c => c.name.toLowerCase() === q);
+    const pendingNames = new Set(pendingData.map(p => p.name.toLowerCase()));
+    const filtered = q ? catalogData.filter(c => c.name.toLowerCase().includes(q)) : [...catalogData];
+    const exactMatch = catalogData.find(c => c.name.toLowerCase() === q);
 
     let html = filtered.map(item => {
       const already = pendingNames.has(item.name.toLowerCase());
@@ -483,11 +489,7 @@
   function pickItem(el) {
     const name = el.dataset.name;
     if (el.dataset.new === '1') {
-      const catalog = getCatalog();
-      const newId = Date.now().toString();
-      catalog.push({ id: newId, name });
-      save('catalog', catalog);
-      pickedItem = { id: newId, name };
+      pickedItem = { id: null, name, isNew: true };
     } else {
       pickedItem = { id: el.dataset.id, name };
     }
@@ -501,33 +503,42 @@
     document.getElementById('btn-confirm').disabled = false;
   }
 
-  function addItem() {
+  async function addItem() {
     if (!pickedItem) return;
-    const pending = getPending();
-    if (pending.find(p => p.name.toLowerCase() === pickedItem.name.toLowerCase())) {
+    if (pendingData.find(p => p.name.toLowerCase() === pickedItem.name.toLowerCase())) {
       const disp = document.getElementById('selected-display');
       disp.textContent = '"' + pickedItem.name + '" ya está en la lista pendiente.';
       disp.style.background = '#FFF3CD';
       disp.style.borderColor = '#D4A017';
       return;
     }
-    pending.push({
-      id: Date.now().toString(),
-      catalogItemId: pickedItem.id,
+
+    let catalogItemId = pickedItem.id;
+    if (pickedItem.isNew) {
+      const { data } = await sb.from('catalog').insert({ name: pickedItem.name }).select().single();
+      if (data) { catalogItemId = data.id; catalogData.push(data); }
+    }
+
+    await sb.from('pending').insert({
+      catalog_item_id: catalogItemId,
       name: pickedItem.name,
-      addedBy: currentUser,
-      addedAt: new Date().toISOString()
+      added_by: currentUser,
+      added_at: new Date().toISOString()
     });
-    save('pending', pending);
+
     closeModal();
-    renderPending();
+    await renderPending();
   }
 
   // ===== HISTORY =====
   let historyFilter = null;
 
-  function renderHistory() {
-    const history = getHistory();
+  async function renderHistory() {
+    let query = sb.from('history').select('*').order('bought_at', { ascending: false });
+    if (historyFilter) query = query.eq('bought_by', historyFilter);
+    const { data } = await query;
+    const history = data ?? [];
+
     document.getElementById('history-filters').innerHTML = [
       `<span class="filter-chip ${!historyFilter ? 'active' : ''}" onclick="setFilter(null)">Todos</span>`,
       ...MEMBERS.map(m => {
@@ -538,20 +549,19 @@
       })
     ].join('');
 
-    const filtered = historyFilter ? history.filter(h => h.boughtBy === historyFilter) : history;
     const el = document.getElementById('history-list');
-    if (!filtered.length) {
+    if (!history.length) {
       el.innerHTML = '<div class="empty-state">Sin historial aún.</div>';
       return;
     }
-    el.innerHTML = filtered.map(item => `
+    el.innerHTML = history.map(item => `
       <div class="history-card">
         <div class="history-info">
           <div class="history-name">${esc(item.name)}</div>
-          <div class="history-meta">Comprado por <strong>${esc(item.boughtBy)}</strong> · ${fmtDate(item.boughtAt)}</div>
-          <div class="history-added">Agregado por ${esc(item.addedBy)} · ${fmtDate(item.addedAt)}</div>
+          <div class="history-meta">Comprado por <strong>${esc(item.bought_by)}</strong> · ${fmtDate(item.bought_at)}</div>
+          <div class="history-added">Agregado por ${esc(item.added_by)} · ${fmtDate(item.added_at)}</div>
         </div>
-        <div class="history-avatar" style="background:${memberColor(item.boughtBy)}">${item.boughtBy[0]}</div>
+        <div class="history-avatar" style="background:${memberColor(item.bought_by)}">${item.bought_by[0]}</div>
       </div>
     `).join('');
   }
@@ -559,8 +569,10 @@
   function setFilter(name) { historyFilter = name; renderHistory(); }
 
   // ===== INIT =====
-  getCatalog();
-  renderPending();
+  (async () => {
+    await ensureCatalog();
+    await renderPending();
+  })();
 </script>
 </body>
 </html>

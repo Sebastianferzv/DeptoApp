@@ -268,7 +268,12 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  const SUPABASE_URL = 'https://ktpyqsywskwcwanlcukr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_-prx0KtYuJIjWb0BnxcB1w_vbo26tl4';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
   const MEMBERS = [
     { name: 'Seba',  color: '#C0664A' },
     { name: 'Fran',  color: '#6A8C69' },
@@ -278,12 +283,6 @@
 
   const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves'];
   const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-
-  function load(key, def) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; }
-  }
-  function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
-  function getAssignments() { return load('almuerzos', {}); }
 
   function toDateStr(date) {
     const y = date.getFullYear();
@@ -295,9 +294,8 @@
   function getInitialMonday() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const day = today.getDay(); // 0=Sun
+    const day = today.getDay();
     if (day === 0) {
-      // Sunday → next Monday
       const next = new Date(today);
       next.setDate(today.getDate() + 1);
       return next;
@@ -313,8 +311,8 @@
     return d;
   }
 
-  // Week navigation state
   let weekStart = getInitialMonday();
+  let weekAssignments = {};
 
   function getWeekDays() {
     return [0, 1, 2, 3].map(i => addDays(weekStart, i));
@@ -329,16 +327,22 @@
     return `${first.getDate()} de ${MONTHS[first.getMonth()]} al ${last.getDate()} de ${MONTHS[last.getMonth()]} ${last.getFullYear()}`;
   }
 
-  function renderWeek() {
+  async function renderWeek() {
     const days = getWeekDays();
     document.getElementById('week-label').textContent = formatWeekLabel(days);
 
-    const assignments = getAssignments();
-    const grid = document.getElementById('days-grid');
+    const dateStrs = days.map(d => toDateStr(d));
+    const { data } = await sb.from('almuerzo_assignments')
+      .select('*')
+      .in('date', dateStrs);
 
+    weekAssignments = {};
+    (data ?? []).forEach(row => { weekAssignments[row.date] = row.member_name; });
+
+    const grid = document.getElementById('days-grid');
     grid.innerHTML = days.map((date, i) => {
       const dateStr = toDateStr(date);
-      const assigned = assignments[dateStr];
+      const assigned = weekAssignments[dateStr];
       const member = assigned ? MEMBERS.find(m => m.name === assigned) : null;
 
       return `
@@ -366,8 +370,7 @@
 
   function openPicker(dateStr, dayName) {
     pickerDate = dateStr;
-    const assignments = getAssignments();
-    const current = assignments[dateStr];
+    const current = weekAssignments[dateStr];
 
     document.getElementById('picker-title').textContent = `¿Quién cocina el ${dayName.toLowerCase()}?`;
 
@@ -390,22 +393,19 @@
     if (e.target === document.getElementById('picker')) closePicker();
   }
 
-  function assignMember(name) {
+  async function assignMember(name) {
     if (!pickerDate) return;
-    const assignments = getAssignments();
-    assignments[pickerDate] = name;
-    save('almuerzos', assignments);
+    await sb.from('almuerzo_assignments')
+      .upsert({ date: pickerDate, member_name: name }, { onConflict: 'date' });
     closePicker();
-    renderWeek();
+    await renderWeek();
   }
 
-  function clearDay() {
+  async function clearDay() {
     if (!pickerDate) return;
-    const assignments = getAssignments();
-    delete assignments[pickerDate];
-    save('almuerzos', assignments);
+    await sb.from('almuerzo_assignments').delete().eq('date', pickerDate);
     closePicker();
-    renderWeek();
+    await renderWeek();
   }
 
   // ===== INIT =====

@@ -403,7 +403,12 @@
     </div>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  const SUPABASE_URL = 'https://ktpyqsywskwcwanlcukr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_-prx0KtYuJIjWb0BnxcB1w_vbo26tl4';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
   const MEMBERS = [
     { name: 'Seba',  color: '#C0664A' },
     { name: 'Fran',  color: '#6A8C69' },
@@ -416,13 +421,13 @@
   const SHORT_MONTHS = ['ene','feb','mar','abr','may','jun',
                         'jul','ago','sep','oct','nov','dic'];
 
-  // ===== STORAGE =====
-  function load(key, def) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; }
+  // ===== DATA CACHE =====
+  let tasksData = [];
+
+  async function loadTasks() {
+    const { data } = await sb.from('tareas').select('*').order('created_at');
+    tasksData = data ?? [];
   }
-  function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
-  const getTasks = () => load('tareas', []);
-  const saveTasks = tasks => save('tareas', tasks);
 
   // ===== DATE HELPERS =====
   function addDays(date, n) {
@@ -466,24 +471,24 @@
 
   // ===== TASK LOGIC =====
   function getResponsible(task, weekMonday) {
-    const start = new Date(task.startDate);
+    const start = new Date(task.start_date);
     start.setHours(0, 0, 0, 0);
     const diff = weeksBetween(start, weekMonday);
-    if (diff < 0 || diff % task.intervalWeeks !== 0) return null;
-    const slot = Math.floor(diff / task.intervalWeeks) % MEMBERS.length;
-    return MEMBERS[(task.startPersonIndex + slot) % MEMBERS.length];
+    if (diff < 0 || diff % task.interval_weeks !== 0) return null;
+    const slot = Math.floor(diff / task.interval_weeks) % MEMBERS.length;
+    return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
   }
 
   // ===== RENDER =====
   let visibleWeeks = 8;
   const thisMonday = getThisMonday();
 
-  function renderWeeks() {
-    const tasks = getTasks();
+  async function renderWeeks() {
+    await loadTasks();
     const container = document.getElementById('weeks-list');
     const loadBtn = document.getElementById('load-more-btn');
 
-    if (!tasks.length) {
+    if (!tasksData.length) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">📋</div>
@@ -500,7 +505,7 @@
       const isCurrent = i === 0;
       const range = formatWeekRange(monday);
 
-      const taskRows = tasks.map(task => {
+      const taskRows = tasksData.map(task => {
         const person = getResponsible(task, monday);
         if (!person) return '';
         return `
@@ -525,9 +530,9 @@
     loadBtn.style.display = 'block';
   }
 
-  function loadMore() {
+  async function loadMore() {
     visibleWeeks += 8;
-    renderWeeks();
+    await renderWeeks();
   }
 
   // ===== ADD MODAL =====
@@ -584,20 +589,17 @@
     document.getElementById('btn-add-task').disabled = !this.value.trim();
   });
 
-  function submitTask() {
+  async function submitTask() {
     const name = document.getElementById('task-name-input').value.trim();
     if (!name) return;
-    const tasks = getTasks();
-    tasks.push({
-      id: Date.now().toString(),
+    await sb.from('tareas').insert({
       name,
-      intervalWeeks: formWeeks,
-      startDate: toDateStr(thisMonday),
-      startPersonIndex: formPersonIndex
+      interval_weeks: formWeeks,
+      start_date: toDateStr(thisMonday),
+      start_person_index: formPersonIndex
     });
-    saveTasks(tasks);
     closeAddModal();
-    renderWeeks();
+    await renderWeeks();
   }
 
   // ===== MANAGE MODAL =====
@@ -615,20 +617,19 @@
   }
 
   function renderManageList() {
-    const tasks = getTasks();
     const el = document.getElementById('manage-list');
-    if (!tasks.length) {
+    if (!tasksData.length) {
       el.innerHTML = '<div class="manage-empty">No hay tareas programadas aún.</div>';
       return;
     }
-    el.innerHTML = tasks.map(task => {
-      const starter = MEMBERS[task.startPersonIndex];
+    el.innerHTML = tasksData.map(task => {
+      const starter = MEMBERS[task.start_person_index];
       return `
         <div class="manage-task-item">
           <div class="manage-task-info">
             <div class="manage-task-name">${esc(task.name)}</div>
             <div class="manage-task-meta">
-              Rota cada ${task.intervalWeeks} semana${task.intervalWeeks > 1 ? 's' : ''}
+              Rota cada ${task.interval_weeks} semana${task.interval_weeks > 1 ? 's' : ''}
               · empieza ${starter.name}
             </div>
           </div>
@@ -637,11 +638,10 @@
     }).join('');
   }
 
-  function deleteTask(id) {
-    const tasks = getTasks().filter(t => t.id !== id);
-    saveTasks(tasks);
+  async function deleteTask(id) {
+    await sb.from('tareas').delete().eq('id', id);
+    await renderWeeks();
     renderManageList();
-    renderWeeks();
   }
 
   // ===== UTILS =====
