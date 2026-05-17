@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tareas — Depto</title>
+  <style>
+    :root {
+      --wood-dark:  #5C3D1E;
+      --wood-mid:   #7A5230;
+      --cream:      #FFFDF8;
+      --cream-dark: #F0DCC8;
+      --text-dark:  #2C1A0E;
+      --text-mid:   #6B4423;
+      --text-light: #9B7355;
+      --shadow:     rgba(44, 26, 14, 0.18);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background-color: #6B4423;
+      background-image:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px, transparent 55px,
+          rgba(0,0,0,0.04) 55px, rgba(0,0,0,0.04) 56px,
+          transparent 56px, transparent 110px,
+          rgba(255,255,255,0.025) 110px, rgba(255,255,255,0.025) 111px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px, transparent 90px,
+          rgba(0,0,0,0.03) 90px, rgba(0,0,0,0.03) 91px
+        ),
+        linear-gradient(180deg, #8B6040 0%, #6B4423 35%, #7A4F30 65%, #5C3820 100%);
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: var(--wood-dark);
+      background-image: repeating-linear-gradient(
+        90deg,
+        transparent 0px, transparent 48px,
+        rgba(255,255,255,0.025) 48px, rgba(255,255,255,0.025) 49px
+      );
+      padding: 0.9rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.35);
+      flex-shrink: 0;
+    }
+    .header-logo {
+      font-family: Georgia, serif;
+      font-size: 1.5rem;
+      letter-spacing: 0.07em;
+      color: var(--cream);
+      flex: 1;
+    }
+    .btn-header {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: var(--cream-dark);
+      border-radius: 8px;
+      padding: 0.38rem 0.7rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .btn-header:hover { background: rgba(255,255,255,0.2); }
+
+    /* ===== CONTENT ===== */
+    .content {
+      flex: 1;
+      padding: 1rem 1rem 6rem;
+      overflow-y: auto;
+    }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+      text-align: center;
+      gap: 0.75rem;
+    }
+    .empty-icon { font-size: 3rem; opacity: 0.6; }
+    .empty-title {
+      font-family: Georgia, serif;
+      font-size: 1.1rem;
+      color: var(--cream);
+      opacity: 0.85;
+    }
+    .empty-sub { font-size: 0.85rem; color: var(--cream-dark); opacity: 0.65; }
+
+    /* ===== WEEK CARDS ===== */
+    .week-card {
+      background: var(--cream);
+      border-radius: 14px;
+      margin-bottom: 0.85rem;
+      overflow: hidden;
+      box-shadow: 0 2px 10px var(--shadow);
+    }
+    .week-card.current-week {
+      box-shadow: 0 0 0 2.5px var(--cream-dark), 0 3px 14px var(--shadow);
+    }
+
+    .week-header {
+      background: var(--wood-mid);
+      padding: 0.55rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .week-card.current-week .week-header { background: var(--wood-dark); }
+
+    .week-label {
+      font-family: Georgia, serif;
+      font-size: 0.88rem;
+      color: var(--cream);
+      font-weight: bold;
+      flex: 1;
+    }
+    .current-badge {
+      background: var(--cream-dark);
+      color: var(--wood-dark);
+      font-size: 0.68rem;
+      font-weight: bold;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .week-tasks { padding: 0.35rem 0; }
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 1rem;
+      border-bottom: 1px solid var(--cream-dark);
+    }
+    .task-row:last-child { border-bottom: none; }
+
+    .task-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: Georgia, serif; font-size: 0.85rem; font-weight: bold;
+      color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    }
+    .task-name {
+      flex: 1;
+      font-size: 0.9rem;
+      color: var(--text-dark);
+      font-weight: 500;
+    }
+    .task-person {
+      font-size: 0.82rem;
+      color: var(--text-mid);
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    /* ===== LOAD MORE ===== */
+    .load-more-btn {
+      width: 100%;
+      padding: 0.75rem;
+      background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      color: var(--cream-dark);
+      font-size: 0.88rem;
+      font-family: Georgia, serif;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-top: 0.25rem;
+    }
+    .load-more-btn:hover { background: rgba(255,255,255,0.18); }
+
+    /* ===== FAB ===== */
+    .fab {
+      position: fixed; bottom: 1.5rem; right: 1.5rem;
+      width: 56px; height: 56px; border-radius: 50%;
+      background: var(--wood-dark); color: var(--cream);
+      border: none; font-size: 1.8rem; cursor: pointer;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.38);
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s, box-shadow 0.15s; z-index: 10;
+    }
+    .fab:hover { transform: scale(1.09); box-shadow: 0 6px 22px rgba(0,0,0,0.42); }
+    .fab:active { transform: scale(0.95); }
+
+    /* ===== MODALS ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(44, 26, 14, 0.65); z-index: 100;
+      align-items: flex-end; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--cream); border-radius: 20px 20px 0 0;
+      padding: 1.5rem; width: 100%; max-width: 480px;
+      box-shadow: 0 -4px 28px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto;
+    }
+    .modal-title {
+      font-family: Georgia, serif; font-size: 1.2rem;
+      color: var(--wood-dark); margin-bottom: 1.25rem; text-align: center;
+    }
+
+    /* Form fields */
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: var(--text-mid);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.4rem;
+    }
+    .form-group { margin-bottom: 1.1rem; }
+
+    .text-input {
+      width: 100%; padding: 0.7rem 1rem;
+      border: 2px solid var(--cream-dark); border-radius: 10px;
+      font-size: 1rem; color: var(--text-dark); background: white;
+      outline: none; transition: border-color 0.15s;
+    }
+    .text-input:focus { border-color: var(--wood-mid); }
+
+    /* Weeks selector */
+    .weeks-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .weeks-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 2px solid var(--cream-dark); background: white;
+      font-size: 1.1rem; color: var(--text-mid); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: bold; transition: all 0.15s;
+    }
+    .weeks-btn:hover:not(:disabled) { border-color: var(--wood-mid); color: var(--wood-dark); }
+    .weeks-btn:disabled { opacity: 0.3; cursor: default; }
+    .weeks-value {
+      flex: 1; text-align: center;
+      font-family: Georgia, serif; font-size: 1.1rem;
+      color: var(--text-dark); font-weight: bold;
+      background: white; border: 2px solid var(--cream-dark);
+      border-radius: 10px; padding: 0.45rem 0;
+    }
+    .weeks-hint {
+      font-size: 0.75rem; color: var(--text-light);
+      text-align: center; margin-top: 0.3rem;
+    }
+
+    /* Member selector */
+    .member-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+    }
+    .member-opt {
+      background: var(--cream-dark);
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 0.65rem 0.25rem 0.5rem;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 0.35rem;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .member-opt:hover { border-color: var(--wood-mid); background: #FFF4E8; }
+    .member-opt.active {
+      border-color: var(--wood-dark);
+      background: #FFF4E8;
+      box-shadow: 0 0 0 1px var(--wood-dark);
+    }
+    .member-opt .av {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: Georgia, serif; font-size: 1rem; font-weight: bold;
+      color: white;
+    }
+    .member-opt .nm { font-size: 0.72rem; color: var(--text-dark); font-weight: bold; }
+
+    /* Modal actions */
+    .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+    .btn-primary {
+      flex: 1; padding: 0.75rem; background: var(--wood-dark); color: var(--cream);
+      border: none; border-radius: 10px; font-size: 1rem; font-family: Georgia, serif;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--wood-mid); }
+    .btn-primary:disabled { opacity: 0.38; cursor: default; }
+    .btn-secondary {
+      padding: 0.75rem 1rem; background: var(--cream-dark); color: var(--text-mid);
+      border: none; border-radius: 10px; font-size: 1rem; cursor: pointer;
+    }
+
+    /* Manage modal */
+    .manage-task-item {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--cream-dark);
+    }
+    .manage-task-item:last-child { border-bottom: none; }
+    .manage-task-info { flex: 1; }
+    .manage-task-name {
+      font-family: Georgia, serif; font-size: 0.97rem;
+      font-weight: bold; color: var(--text-dark);
+    }
+    .manage-task-meta { font-size: 0.75rem; color: var(--text-light); margin-top: 0.1rem; }
+    .btn-delete {
+      background: #FFF0ED; border: 1.5px solid #E07060;
+      color: #C0503E; border-radius: 8px;
+      padding: 0.35rem 0.65rem; font-size: 0.78rem;
+      cursor: pointer; font-weight: bold; white-space: nowrap;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .btn-delete:hover { background: #C0503E; color: white; }
+
+    .manage-empty {
+      text-align: center; padding: 1.5rem 0;
+      color: var(--text-light); font-style: italic; font-size: 0.9rem;
+    }
+
+    @media (min-width: 480px) {
+      .modal { border-radius: 20px; margin-bottom: 2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-logo">Tareas</div>
+    <button class="btn-header" onclick="openManageModal()">Gestionar</button>
+    <a href="index.html" class="btn-header">← Menú</a>
+  </header>
+
+  <div class="content">
+    <div id="weeks-list"></div>
+    <button class="load-more-btn" id="load-more-btn" onclick="loadMore()" style="display:none">
+      Ver más semanas
+    </button>
+  </div>
+
+  <button class="fab" onclick="openAddModal()" title="Nueva tarea">+</button>
+
+  <!-- ADD TASK MODAL -->
+  <div class="modal-overlay" id="add-modal" onclick="onAddOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-title">Nueva tarea</div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre de la tarea</label>
+        <input type="text" id="task-name-input" class="text-input"
+          placeholder="Ej: Limpiar baño, Sacar basura..."
+          autocomplete="off" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Cada cuántas semanas rota (intervalo entre turnos)</label>
+        <div class="weeks-selector">
+          <button class="weeks-btn" id="btn-weeks-minus" onclick="changeWeeks(-1)">−</button>
+          <div class="weeks-value" id="weeks-display">1</div>
+          <button class="weeks-btn" onclick="changeWeeks(1)">+</button>
+        </div>
+        <div class="weeks-hint" id="weeks-hint"></div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">¿Quién empieza?</label>
+        <div class="member-row" id="member-row"></div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" onclick="closeAddModal()">Cancelar</button>
+        <button class="btn-primary" id="btn-add-task" onclick="submitTask()" disabled>Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MANAGE TASKS MODAL -->
+  <div class="modal-overlay" id="manage-modal" onclick="onManageOverlayClick(event)">
+    <div class="modal">
+      <div class="modal-title">Tareas programadas</div>
+      <div id="manage-list"></div>
+      <div class="modal-actions" style="margin-top:0.75rem">
+        <button class="btn-secondary" style="flex:1" onclick="closeManageModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const MEMBERS = [
+    { name: 'Seba',  color: '#C0664A' },
+    { name: 'Fran',  color: '#6A8C69' },
+    { name: 'Sayen', color: '#4A6B8C' },
+    { name: 'Mati',  color: '#C4A43A' },
+  ];
+
+  const MONTHS = ['enero','febrero','marzo','abril','mayo','junio',
+                  'julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const SHORT_MONTHS = ['ene','feb','mar','abr','may','jun',
+                        'jul','ago','sep','oct','nov','dic'];
+
+  // ===== STORAGE =====
+  function load(key, def) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? def; } catch { return def; }
+  }
+  function save(key, val) { localStorage.setItem(key, JSON.stringify(val)); }
+  const getTasks = () => load('tareas', []);
+  const saveTasks = tasks => save('tareas', tasks);
+
+  // ===== DATE HELPERS =====
+  function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function toDateStr(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function getThisMonday() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = today.getDay();
+    if (day === 0) {
+      const next = new Date(today);
+      next.setDate(today.getDate() + 1);
+      return next;
+    }
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (day - 1));
+    return monday;
+  }
+
+  function weeksBetween(dateA, dateB) {
+    return Math.round((dateB - dateA) / (7 * 24 * 60 * 60 * 1000));
+  }
+
+  function formatWeekRange(monday) {
+    const sunday = addDays(monday, 6);
+    if (monday.getMonth() === sunday.getMonth()) {
+      return `${monday.getDate()} al ${sunday.getDate()} de ${MONTHS[monday.getMonth()]}`;
+    }
+    return `${monday.getDate()} ${SHORT_MONTHS[monday.getMonth()]} – ${sunday.getDate()} ${SHORT_MONTHS[sunday.getMonth()]}`;
+  }
+
+  // ===== TASK LOGIC =====
+  function getResponsible(task, weekMonday) {
+    const start = new Date(task.startDate);
+    start.setHours(0, 0, 0, 0);
+    const diff = weeksBetween(start, weekMonday);
+    if (diff < 0 || diff % task.intervalWeeks !== 0) return null;
+    const slot = Math.floor(diff / task.intervalWeeks) % MEMBERS.length;
+    return MEMBERS[(task.startPersonIndex + slot) % MEMBERS.length];
+  }
+
+  // ===== RENDER =====
+  let visibleWeeks = 8;
+  const thisMonday = getThisMonday();
+
+  function renderWeeks() {
+    const tasks = getTasks();
+    const container = document.getElementById('weeks-list');
+    const loadBtn = document.getElementById('load-more-btn');
+
+    if (!tasks.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-title">Sin tareas programadas</div>
+          <div class="empty-sub">Tocá + para programar la primera tarea</div>
+        </div>`;
+      loadBtn.style.display = 'none';
+      return;
+    }
+
+    let html = '';
+    for (let i = 0; i < visibleWeeks; i++) {
+      const monday = addDays(thisMonday, i * 7);
+      const isCurrent = i === 0;
+      const range = formatWeekRange(monday);
+
+      const taskRows = tasks.map(task => {
+        const person = getResponsible(task, monday);
+        if (!person) return '';
+        return `
+          <div class="task-row">
+            <div class="task-avatar" style="background:${person.color}">${person.name[0]}</div>
+            <div class="task-name">${esc(task.name)}</div>
+            <div class="task-person">${person.name}</div>
+          </div>`;
+      }).join('');
+
+      html += `
+        <div class="week-card ${isCurrent ? 'current-week' : ''}">
+          <div class="week-header">
+            <div class="week-label">${range}</div>
+            ${isCurrent ? '<span class="current-badge">Esta semana</span>' : ''}
+          </div>
+          <div class="week-tasks">${taskRows || '<div style="padding:0.6rem 1rem;font-size:0.82rem;color:var(--text-light)">Sin tareas esta semana</div>'}</div>
+        </div>`;
+    }
+
+    container.innerHTML = html;
+    loadBtn.style.display = 'block';
+  }
+
+  function loadMore() {
+    visibleWeeks += 8;
+    renderWeeks();
+  }
+
+  // ===== ADD MODAL =====
+  let formWeeks = 1;
+  let formPersonIndex = 0;
+
+  function openAddModal() {
+    formWeeks = 1;
+    formPersonIndex = 0;
+    document.getElementById('task-name-input').value = '';
+    document.getElementById('btn-add-task').disabled = true;
+    updateWeeksDisplay();
+    renderMemberRow();
+    document.getElementById('add-modal').classList.add('open');
+    setTimeout(() => document.getElementById('task-name-input').focus(), 80);
+  }
+
+  function closeAddModal() {
+    document.getElementById('add-modal').classList.remove('open');
+  }
+
+  function onAddOverlayClick(e) {
+    if (e.target === document.getElementById('add-modal')) closeAddModal();
+  }
+
+  function changeWeeks(delta) {
+    formWeeks = Math.max(1, Math.min(12, formWeeks + delta));
+    updateWeeksDisplay();
+  }
+
+  function updateWeeksDisplay() {
+    document.getElementById('weeks-display').textContent = formWeeks;
+    document.getElementById('btn-weeks-minus').disabled = formWeeks <= 1;
+    const total = formWeeks * MEMBERS.length;
+    document.getElementById('weeks-hint').textContent =
+      `Turno de 1 semana, luego ${formWeeks} semana${formWeeks > 1 ? 's' : ''} hasta el siguiente. Ciclo completo: ${total} semanas (${formWeeks} × ${MEMBERS.length} personas).`;
+  }
+
+  function renderMemberRow() {
+    document.getElementById('member-row').innerHTML = MEMBERS.map((m, i) => `
+      <div class="member-opt ${i === formPersonIndex ? 'active' : ''}" onclick="selectPerson(${i})">
+        <div class="av" style="background:${m.color}">${m.name[0]}</div>
+        <div class="nm">${m.name}</div>
+      </div>
+    `).join('');
+  }
+
+  function selectPerson(i) {
+    formPersonIndex = i;
+    renderMemberRow();
+  }
+
+  document.getElementById('task-name-input').addEventListener('input', function() {
+    document.getElementById('btn-add-task').disabled = !this.value.trim();
+  });
+
+  function submitTask() {
+    const name = document.getElementById('task-name-input').value.trim();
+    if (!name) return;
+    const tasks = getTasks();
+    tasks.push({
+      id: Date.now().toString(),
+      name,
+      intervalWeeks: formWeeks,
+      startDate: toDateStr(thisMonday),
+      startPersonIndex: formPersonIndex
+    });
+    saveTasks(tasks);
+    closeAddModal();
+    renderWeeks();
+  }
+
+  // ===== MANAGE MODAL =====
+  function openManageModal() {
+    renderManageList();
+    document.getElementById('manage-modal').classList.add('open');
+  }
+
+  function closeManageModal() {
+    document.getElementById('manage-modal').classList.remove('open');
+  }
+
+  function onManageOverlayClick(e) {
+    if (e.target === document.getElementById('manage-modal')) closeManageModal();
+  }
+
+  function renderManageList() {
+    const tasks = getTasks();
+    const el = document.getElementById('manage-list');
+    if (!tasks.length) {
+      el.innerHTML = '<div class="manage-empty">No hay tareas programadas aún.</div>';
+      return;
+    }
+    el.innerHTML = tasks.map(task => {
+      const starter = MEMBERS[task.startPersonIndex];
+      return `
+        <div class="manage-task-item">
+          <div class="manage-task-info">
+            <div class="manage-task-name">${esc(task.name)}</div>
+            <div class="manage-task-meta">
+              Rota cada ${task.intervalWeeks} semana${task.intervalWeeks > 1 ? 's' : ''}
+              · empieza ${starter.name}
+            </div>
+          </div>
+          <button class="btn-delete" onclick="deleteTask('${esc(task.id)}')">Eliminar</button>
+        </div>`;
+    }).join('');
+  }
+
+  function deleteTask(id) {
+    const tasks = getTasks().filter(t => t.id !== id);
+    saveTasks(tasks);
+    renderManageList();
+    renderWeeks();
+  }
+
+  // ===== UTILS =====
+  function esc(s) {
+    return String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ===== INIT =====
+  renderWeeks();
+  updateWeeksDisplay();
+</script>
+</body>
+</html>
