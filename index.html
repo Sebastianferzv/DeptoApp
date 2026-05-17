@@ -214,6 +214,16 @@
       border-radius: 10px; color: var(--text-mid); font-size: 0.95rem; cursor: pointer;
     }
 
+    .p-avatar-wrap { position: relative; flex-shrink: 0; }
+    .p-edit-btn {
+      position: absolute; bottom: -2px; right: -2px;
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--wood-dark); border: 2.5px solid var(--cream);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65rem; color: white; cursor: pointer; line-height: 1;
+      pointer-events: all;
+    }
+
     @media (min-width: 480px) {
       .modal { border-radius: 20px; margin-bottom: 2rem; }
     }
@@ -264,6 +274,8 @@
 
 </div>
 
+<input type="file" id="photo-input" accept="image/*" style="display:none" onchange="onPhotoSelected(this)">
+
 <!-- CHANGE USER MODAL -->
 <div class="modal-overlay" id="change-modal" onclick="onOverlayClick(event)">
   <div class="modal">
@@ -286,6 +298,16 @@
   function getUser() { return localStorage.getItem(USER_KEY); }
   function setUser(name) { localStorage.setItem(USER_KEY, name); }
   function memberColor(name) { return MEMBERS.find(m => m.name === name)?.color ?? '#999'; }
+  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  function avatarEl(name, cls) {
+    const photo = getPhoto(name);
+    const color = memberColor(name);
+    if (photo) {
+      return `<div class="${cls}" style="background:${color};background-image:url('${photo}');background-size:cover;background-position:center"></div>`;
+    }
+    return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
+  }
 
   function showView(id) {
     document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -296,7 +318,10 @@
   function renderProfiles() {
     document.getElementById('profiles-grid').innerHTML = MEMBERS.map(m => `
       <div class="profile-card" onclick="selectUser('${m.name}')">
-        <div class="p-avatar" style="background:${m.color}">${m.name[0]}</div>
+        <div class="p-avatar-wrap" onclick="editPhoto(event,'${m.name}')">
+          ${avatarEl(m.name, 'p-avatar')}
+          <div class="p-edit-btn">📷</div>
+        </div>
         <div class="p-name">${m.name}</div>
       </div>
     `).join('');
@@ -309,10 +334,18 @@
 
   // ===== MENU =====
   function showMenu(name) {
-    const color = memberColor(name);
     const av = document.getElementById('user-btn-avatar');
-    av.style.background = color;
-    av.textContent = name[0];
+    const photo = getPhoto(name);
+    av.style.background = memberColor(name);
+    if (photo) {
+      av.style.backgroundImage = `url('${photo}')`;
+      av.style.backgroundSize = 'cover';
+      av.style.backgroundPosition = 'center';
+      av.textContent = '';
+    } else {
+      av.style.backgroundImage = '';
+      av.textContent = name[0];
+    }
     document.getElementById('user-btn-name').textContent = name;
     showView('view-menu');
   }
@@ -322,7 +355,7 @@
     const current = getUser();
     document.getElementById('change-grid').innerHTML = MEMBERS.map(m => `
       <div class="change-option ${m.name === current ? 'current' : ''}" onclick="changeUser('${m.name}')">
-        <div class="cav" style="background:${m.color}">${m.name[0]}</div>
+        ${avatarEl(m.name, 'cav')}
         <div class="cnm">${m.name}</div>
       </div>
     `).join('');
@@ -341,6 +374,44 @@
     setUser(name);
     showMenu(name);
     closeChangeModal();
+  }
+
+  // ===== PHOTO EDITING =====
+  let editingPhotoFor = null;
+
+  function editPhoto(e, name) {
+    e.stopPropagation();
+    editingPhotoFor = name;
+    const input = document.getElementById('photo-input');
+    input.value = '';
+    input.click();
+  }
+
+  function onPhotoSelected(input) {
+    if (!input.files.length || !editingPhotoFor) return;
+    resizeImage(input.files[0], 300, dataUrl => {
+      localStorage.setItem('deptoPhoto_' + editingPhotoFor, dataUrl);
+      renderProfiles();
+      const current = getUser();
+      if (current === editingPhotoFor) showMenu(current);
+    });
+  }
+
+  function resizeImage(file, maxSize, cb) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        cb(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   // ===== INIT =====

@@ -281,6 +281,17 @@
     { name: 'Mati',  color: '#C4A43A' },
   ];
 
+  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  function photoAvatar(name, cls) {
+    const photo = getPhoto(name);
+    const color = MEMBERS.find(m => m.name === name)?.color ?? '#999';
+    if (photo) {
+      return `<div class="${cls}" style="background:${color};background-image:url('${photo}');background-size:cover;background-position:center"></div>`;
+    }
+    return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
+  }
+
   const DAY_NAMES = ['Lunes', 'Martes', 'Miércoles', 'Jueves'];
   const MONTHS = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
@@ -350,7 +361,7 @@
           <div class="day-name">${DAY_NAMES[i]}</div>
           <div class="day-date">${date.getDate()} de ${MONTHS[date.getMonth()]}</div>
           ${member
-            ? `<div class="day-avatar" style="background:${member.color}">${member.name[0]}</div>
+            ? `${photoAvatar(member.name, 'day-avatar')}
                <div class="day-person">${member.name}</div>`
             : `<div class="day-avatar empty">?</div>
                <div class="day-person empty">Sin asignar</div>`
@@ -376,7 +387,7 @@
 
     document.getElementById('member-grid').innerHTML = MEMBERS.map(m => `
       <div class="member-option ${current === m.name ? 'selected' : ''}" onclick="assignMember('${m.name}')">
-        <div class="member-avatar" style="background:${m.color}">${m.name[0]}</div>
+        ${photoAvatar(m.name, 'member-avatar')}
         <div class="member-name-label">${m.name}</div>
       </div>
     `).join('');

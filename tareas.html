@@ -421,6 +421,17 @@
   const SHORT_MONTHS = ['ene','feb','mar','abr','may','jun',
                         'jul','ago','sep','oct','nov','dic'];
 
+  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  function photoAvatar(name, cls) {
+    const photo = getPhoto(name);
+    const color = MEMBERS.find(m => m.name === name)?.color ?? '#999';
+    if (photo) {
+      return `<div class="${cls}" style="background:${color};background-image:url('${photo}');background-size:cover;background-position:center"></div>`;
+    }
+    return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
+  }
+
   // ===== DATA CACHE =====
   let tasksData = [];
 
@@ -510,7 +521,7 @@
         if (!person) return '';
         return `
           <div class="task-row">
-            <div class="task-avatar" style="background:${person.color}">${person.name[0]}</div>
+            ${photoAvatar(person.name, 'task-avatar')}
             <div class="task-name">${esc(task.name)}</div>
             <div class="task-person">${person.name}</div>
           </div>`;

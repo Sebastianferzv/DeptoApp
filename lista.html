@@ -289,7 +289,6 @@
   <div id="section-history" class="content-area" style="padding:0; padding-bottom:0; display:flex; flex-direction:column;">
     <div class="back-bar">
       <button class="btn-back" onclick="showSection('pending')">← Volver</button>
-      <span class="back-title">Historial</span>
     </div>
     <div style="padding:1rem; padding-bottom:5.5rem; overflow-y:auto; flex:1;">
       <div class="history-filters" id="history-filters"></div>
@@ -335,10 +334,28 @@
   if (!currentUser) { window.location.href = 'index.html'; }
 
   function memberColor(name) { return MEMBERS.find(m => m.name === name)?.color ?? '#999'; }
+  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  function photoAvatar(name, cls) {
+    const photo = getPhoto(name);
+    const color = memberColor(name);
+    if (photo) {
+      return `<div class="${cls}" style="background:${color};background-image:url('${photo}');background-size:cover;background-position:center"></div>`;
+    }
+    return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
+  }
 
   const av = document.getElementById('header-avatar');
+  const _photo = getPhoto(currentUser);
   av.style.background = memberColor(currentUser);
-  av.textContent = currentUser ? currentUser[0] : '';
+  if (_photo) {
+    av.style.backgroundImage = `url('${_photo}')`;
+    av.style.backgroundSize = 'cover';
+    av.style.backgroundPosition = 'center';
+    av.textContent = '';
+  } else {
+    av.textContent = currentUser ? currentUser[0] : '';
+  }
   document.getElementById('header-name').textContent = currentUser ?? '';
 
   // ===== DATA CACHE =====
@@ -561,7 +578,7 @@
           <div class="history-meta">Comprado por <strong>${esc(item.bought_by)}</strong> · ${fmtDate(item.bought_at)}</div>
           <div class="history-added">Agregado por ${esc(item.added_by)} · ${fmtDate(item.added_at)}</div>
         </div>
-        <div class="history-avatar" style="background:${memberColor(item.bought_by)}">${item.bought_by[0]}</div>
+        ${photoAvatar(item.bought_by, 'history-avatar')}
       </div>
     `).join('');
   }
