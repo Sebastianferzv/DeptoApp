@@ -1,13 +1,63 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="90" fill="#6B4423"/>
-  <rect width="512" height="512" rx="90" fill="url(#grain)" opacity="0.15"/>
   <defs>
-    <linearGradient id="grain" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#8B6040"/>
-      <stop offset="100%" stop-color="#5C3820"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7A4F2A"/>
+      <stop offset="100%" stop-color="#5C3D1E"/>
     </linearGradient>
   </defs>
-  <text x="50%" y="62%" dominant-baseline="middle" text-anchor="middle"
-        font-family="Georgia,serif" font-size="310" font-weight="bold"
-        fill="#FFFDF8" opacity="0.95">D</text>
+
+  <!-- Fondo redondeado -->
+  <rect width="512" height="512" rx="90" fill="url(#bg)"/>
+
+  <!-- Edificio central (torre principal) -->
+  <rect x="156" y="170" width="200" height="280" rx="6" fill="#FFFDF8"/>
+
+  <!-- Torre izquierda (más baja) -->
+  <rect x="76" y="240" width="100" height="210" rx="5" fill="#F0E6D8"/>
+
+  <!-- Torre derecha (más baja) -->
+  <rect x="336" y="240" width="100" height="210" rx="5" fill="#F0E6D8"/>
+
+  <!-- Techo torre central: trapecio -->
+  <polygon points="146,170 256,100 366,170" fill="#C8956A"/>
+
+  <!-- Techo torre izquierda -->
+  <polygon points="68,240 126,195 184,240" fill="#B8855A"/>
+
+  <!-- Techo torre derecha -->
+  <polygon points="328,240 386,195 444,240" fill="#B8855A"/>
+
+  <!-- Ventanas torre central — fila 1 -->
+  <rect x="192" y="200" width="36" height="44" rx="4" fill="#6B9BBF" opacity="0.85"/>
+  <rect x="238" y="200" width="36" height="44" rx="4" fill="#6B9BBF" opacity="0.85"/>
+  <rect x="284" y="200" width="36" height="44" rx="4" fill="#FFFAE0" opacity="0.9"/>
+
+  <!-- Ventanas torre central — fila 2 -->
+  <rect x="192" y="262" width="36" height="44" rx="4" fill="#FFFAE0" opacity="0.9"/>
+  <rect x="238" y="262" width="36" height="44" rx="4" fill="#6B9BBF" opacity="0.85"/>
+  <rect x="284" y="262" width="36" height="44" rx="4" fill="#FFFAE0" opacity="0.9"/>
+
+  <!-- Ventanas torre central — fila 3 -->
+  <rect x="192" y="324" width="36" height="44" rx="4" fill="#6B9BBF" opacity="0.85"/>
+  <rect x="238" y="324" width="36" height="44" rx="4" fill="#FFFAE0" opacity="0.9"/>
+  <rect x="284" y="324" width="36" height="44" rx="4" fill="#6B9BBF" opacity="0.85"/>
+
+  <!-- Puerta entrada -->
+  <rect x="224" y="390" width="64" height="60" rx="32" fill="#C8956A"/>
+  <rect x="224" y="420" width="64" height="30" fill="#C8956A"/>
+
+  <!-- Ventanas torre izquierda -->
+  <rect x="93" y="268" width="30" height="38" rx="3" fill="#FFFAE0" opacity="0.9"/>
+  <rect x="133" y="268" width="30" height="38" rx="3" fill="#6B9BBF" opacity="0.8"/>
+  <rect x="93" y="324" width="30" height="38" rx="3" fill="#6B9BBF" opacity="0.8"/>
+  <rect x="133" y="324" width="30" height="38" rx="3" fill="#FFFAE0" opacity="0.9"/>
+
+  <!-- Ventanas torre derecha -->
+  <rect x="349" y="268" width="30" height="38" rx="3" fill="#6B9BBF" opacity="0.8"/>
+  <rect x="389" y="268" width="30" height="38" rx="3" fill="#FFFAE0" opacity="0.9"/>
+  <rect x="349" y="324" width="30" height="38" rx="3" fill="#FFFAE0" opacity="0.9"/>
+  <rect x="389" y="324" width="30" height="38" rx="3" fill="#6B9BBF" opacity="0.8"/>
+
+  <!-- Suelo / base -->
+  <rect x="60" y="448" width="392" height="16" rx="6" fill="#C8956A" opacity="0.7"/>
 </svg>
