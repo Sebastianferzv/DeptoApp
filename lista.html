@@ -154,8 +154,10 @@
 
     .btn-bought {
       background: var(--green-light); border: 1.5px solid var(--green); color: var(--green);
-      border-radius: 8px; padding: 0.45rem 0.7rem; font-size: 0.8rem; font-weight: bold;
+      border-radius: 8px; padding: 0.45rem 0.55rem; font-size: 1rem; font-weight: bold;
       cursor: pointer; white-space: nowrap; transition: all 0.15s; flex-shrink: 0;
+      line-height: 1; display: flex; align-items: center; justify-content: center;
+      width: 36px; height: 36px;
     }
     .btn-bought:hover { background: var(--green); color: white; }
 
@@ -442,7 +444,7 @@
           <div class="item-name">${esc(item.name)}</div>
           <div class="item-meta">Agregado por ${esc(item.added_by)} · ${timeAgo(item.added_at)}</div>
         </div>
-        <button class="btn-bought" onclick="confirmBought('${esc(item.id)}')">✓ Comprado</button>
+        <button class="btn-bought" onclick="confirmBought('${esc(item.id)}')">✓</button>
       </div>
     `).join('');
   }
