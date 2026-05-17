@@ -430,25 +430,57 @@
     return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
   }
 
+  function _urgencyStyle(u) {
+    if (u >= 2) return 'background:rgba(200,40,20,0.32);border-color:rgba(220,60,40,0.72);';
+    const t = Math.min(u, 1);
+    const g = Math.round(248 - 168 * t);
+    const b = Math.round(200 - 140 * t);
+    const a  = (0.15 + 0.15 * t).toFixed(2);
+    const ba = (0.35 + 0.32 * t).toFixed(2);
+    return `background:rgba(255,${g},${b},${a});border-color:rgba(255,${g},${b},${ba});`;
+  }
+
+  function _getDayUrgency() {
+    const day = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
+    const d = day === 0 ? 7 : day;  // Mon=1, Sun=7
+    return (d - 1) / 6;             // Mon=0.0, Sun=1.0
+  }
+
   async function renderNotifications(name) {
     const today = _toDateStr(new Date());
     const monday = _getThisMonday();
     const mondayStr = _toDateStr(monday);
+    const urgency = _getDayUrgency();
     const alerts = [];
 
     const { data: alm } = await sb.from('almuerzo_assignments')
       .select('member_name').eq('date', today).maybeSingle();
     if (alm?.member_name === name) {
-      alerts.push({ icon: '🍽️', text: 'Hoy te toca hacer el almuerzo' });
+      alerts.push({ icon: '🍽️', text: 'Hoy te toca hacer el almuerzo', u: urgency });
     }
 
     const { data: tareas } = await sb.from('tareas').select('*');
     if (tareas) {
+      // Current week
       for (const task of tareas) {
         const person = _getResponsible(task, monday);
         if (person?.name === name) {
           const done = localStorage.getItem('deptoTaskDone_' + task.id + '_' + mondayStr);
-          if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}` });
+          if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
+        }
+      }
+      // Overdue past weeks
+      const seen = new Set();
+      for (let w = 1; w <= 12; w++) {
+        const prevMon = new Date(monday); prevMon.setDate(monday.getDate() - w * 7);
+        const prevStr = _toDateStr(prevMon);
+        for (const task of tareas) {
+          if (seen.has(task.id)) continue;
+          const person = _getResponsible(task, prevMon);
+          if (person?.name === name && !localStorage.getItem('deptoTaskDone_' + task.id + '_' + prevStr)) {
+            seen.add(task.id);
+            alerts.push({ icon: '⚠️', text: `Tarea atrasada: ${task.name}`, u: 2 });
+          }
         }
       }
     }
@@ -456,7 +488,7 @@
     const el = document.getElementById('notifications');
     el.style.display = alerts.length ? 'block' : 'none';
     el.innerHTML = alerts.map(a =>
-      `<div class="notif-card"><span class="notif-icon">${a.icon}</span><span>${a.text}</span></div>`
+      `<div class="notif-card" style="${_urgencyStyle(a.u)}"><span class="notif-icon">${a.icon}</span><span>${a.text}</span></div>`
     ).join('');
   }
 

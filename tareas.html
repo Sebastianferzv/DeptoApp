@@ -350,6 +350,22 @@
     .task-row.done .task-name { text-decoration: line-through; opacity: 0.55; }
     .task-row.done .task-person { opacity: 0.55; }
 
+    /* ===== URGENCY ===== */
+    .urgency-mid.week-card { box-shadow: 0 0 0 2.5px rgba(210,130,40,0.6), 0 3px 14px var(--shadow); }
+    .urgency-high.week-card { box-shadow: 0 0 0 2.5px rgba(200,65,45,0.7), 0 3px 14px var(--shadow); }
+    .urgency-mid .btn-task-done { border-color: #C88020; color: #C88020; background: #FFF6E8; }
+    .urgency-mid .btn-task-done:hover { background: #C88020; color: white; }
+    .urgency-high .btn-task-done { border-color: #C0503E; color: #C0503E; background: #FFF0ED; }
+    .urgency-high .btn-task-done:hover { background: #C0503E; color: white; }
+
+    /* ===== OVERDUE ===== */
+    .overdue-card .week-header { background: #8B2515; }
+    .task-badge-overdue {
+      font-size: 0.72rem; font-weight: bold; color: white;
+      background: #B03020; border-radius: 6px; padding: 0.18rem 0.5rem;
+      flex-shrink: 0; white-space: nowrap;
+    }
+
     @media (min-width: 480px) {
       .modal { border-radius: 20px; margin-bottom: 2rem; }
     }
@@ -464,6 +480,13 @@
     renderWeeks();
   }
 
+  function getUrgencyClass() {
+    const day = new Date().getDay(); // 0=Sun,1=Mon,...,6=Sat
+    if (day === 0 || day >= 5) return 'urgency-high'; // Fri/Sat/Sun
+    if (day >= 3) return 'urgency-mid';               // Wed/Thu
+    return '';                                         // Mon/Tue
+  }
+
   // ===== DATA CACHE =====
   let tasksData = [];
 
@@ -542,11 +565,46 @@
       return;
     }
 
+    // ===== OVERDUE =====
+    let overdueHtml = '';
+    if (currentUser) {
+      const overdueRows = [];
+      const seen = new Set();
+      for (let w = 1; w <= 12; w++) {
+        const prevMon = addDays(thisMonday, -w * 7);
+        const prevStr = toDateStr(prevMon);
+        for (const task of tasksData) {
+          if (seen.has(task.id)) continue;
+          const person = getResponsible(task, prevMon);
+          if (person?.name === currentUser && !isDone(task.id, prevStr)) {
+            seen.add(task.id);
+            overdueRows.push(`
+              <div class="task-row">
+                ${photoAvatar(currentUser, 'task-avatar')}
+                <div class="task-name">${esc(task.name)}</div>
+                <span class="task-badge-overdue">Atrasada</span>
+              </div>`);
+          }
+        }
+      }
+      if (overdueRows.length) {
+        overdueHtml = `
+          <div class="week-card overdue-card">
+            <div class="week-header overdue-header">
+              <div class="week-label">⚠️ Tareas atrasadas</div>
+            </div>
+            <div class="week-tasks">${overdueRows.join('')}</div>
+          </div>`;
+      }
+    }
+
+    // ===== WEEKS =====
     let html = '';
     for (let i = 0; i < visibleWeeks; i++) {
       const monday = addDays(thisMonday, i * 7);
       const isCurrent = i === 0;
       const range = formatWeekRange(monday);
+      const urgencyClass = isCurrent ? getUrgencyClass() : '';
 
       const weekStr = toDateStr(monday);
       const taskRows = tasksData.map(task => {
@@ -569,7 +627,7 @@
       }).join('');
 
       html += `
-        <div class="week-card ${isCurrent ? 'current-week' : ''}">
+        <div class="week-card ${isCurrent ? 'current-week' : ''} ${urgencyClass}">
           <div class="week-header">
             <div class="week-label">${range}</div>
             ${isCurrent ? '<span class="current-badge">Esta semana</span>' : ''}
@@ -578,7 +636,7 @@
         </div>`;
     }
 
-    container.innerHTML = html;
+    container.innerHTML = overdueHtml + html;
     loadBtn.style.display = 'block';
   }
 
