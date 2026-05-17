@@ -421,7 +421,14 @@
   const SHORT_MONTHS = ['ene','feb','mar','abr','may','jun',
                         'jul','ago','sep','oct','nov','dic'];
 
-  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+  let photoCache = {};
+
+  async function loadPhotos() {
+    const { data } = await sb.from('profiles').select('name, photo');
+    if (data) data.forEach(r => { if (r.photo) photoCache[r.name] = r.photo; });
+  }
+
+  function getPhoto(name) { return photoCache[name] ?? null; }
 
   function photoAvatar(name, cls) {
     const photo = getPhoto(name);
@@ -663,8 +670,11 @@
   }
 
   // ===== INIT =====
-  renderWeeks();
-  updateWeeksDisplay();
+  (async () => {
+    await loadPhotos();
+    await renderWeeks();
+    updateWeeksDisplay();
+  })();
 </script>
 </body>
 </html>

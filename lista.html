@@ -334,7 +334,16 @@
   if (!currentUser) { window.location.href = 'index.html'; }
 
   function memberColor(name) { return MEMBERS.find(m => m.name === name)?.color ?? '#999'; }
-  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  // ===== PHOTOS =====
+  let photoCache = {};
+
+  async function loadPhotos() {
+    const { data } = await sb.from('profiles').select('name, photo');
+    if (data) data.forEach(r => { if (r.photo) photoCache[r.name] = r.photo; });
+  }
+
+  function getPhoto(name) { return photoCache[name] ?? null; }
 
   function photoAvatar(name, cls) {
     const photo = getPhoto(name);
@@ -345,18 +354,21 @@
     return `<div class="${cls}" style="background:${color}">${name[0]}</div>`;
   }
 
-  const av = document.getElementById('header-avatar');
-  const _photo = getPhoto(currentUser);
-  av.style.background = memberColor(currentUser);
-  if (_photo) {
-    av.style.backgroundImage = `url('${_photo}')`;
-    av.style.backgroundSize = 'cover';
-    av.style.backgroundPosition = 'center';
-    av.textContent = '';
-  } else {
-    av.textContent = currentUser ? currentUser[0] : '';
+  function setHeaderUser() {
+    const av = document.getElementById('header-avatar');
+    const photo = getPhoto(currentUser);
+    av.style.background = memberColor(currentUser);
+    if (photo) {
+      av.style.backgroundImage = `url('${photo}')`;
+      av.style.backgroundSize = 'cover';
+      av.style.backgroundPosition = 'center';
+      av.textContent = '';
+    } else {
+      av.style.backgroundImage = '';
+      av.textContent = currentUser ? currentUser[0] : '';
+    }
+    document.getElementById('header-name').textContent = currentUser ?? '';
   }
-  document.getElementById('header-name').textContent = currentUser ?? '';
 
   // ===== DATA CACHE =====
   let catalogData = [];
@@ -587,6 +599,8 @@
 
   // ===== INIT =====
   (async () => {
+    await loadPhotos();
+    setHeaderUser();
     await ensureCatalog();
     await renderPending();
   })();

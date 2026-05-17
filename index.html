@@ -285,7 +285,12 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  const SUPABASE_URL = 'https://ktpyqsywskwcwanlcukr.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_-prx0KtYuJIjWb0BnxcB1w_vbo26tl4';
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
   const MEMBERS = [
     { name: 'Seba',  color: '#C0664A' },
     { name: 'Fran',  color: '#6A8C69' },
@@ -298,7 +303,16 @@
   function getUser() { return localStorage.getItem(USER_KEY); }
   function setUser(name) { localStorage.setItem(USER_KEY, name); }
   function memberColor(name) { return MEMBERS.find(m => m.name === name)?.color ?? '#999'; }
-  function getPhoto(name) { return localStorage.getItem('deptoPhoto_' + name); }
+
+  // ===== PHOTOS =====
+  let photoCache = {};
+
+  async function loadPhotos() {
+    const { data } = await sb.from('profiles').select('name, photo');
+    if (data) data.forEach(r => { if (r.photo) photoCache[r.name] = r.photo; });
+  }
+
+  function getPhoto(name) { return photoCache[name] ?? null; }
 
   function avatarEl(name, cls) {
     const photo = getPhoto(name);
@@ -389,11 +403,16 @@
 
   function onPhotoSelected(input) {
     if (!input.files.length || !editingPhotoFor) return;
-    resizeImage(input.files[0], 300, dataUrl => {
-      localStorage.setItem('deptoPhoto_' + editingPhotoFor, dataUrl);
+    resizeImage(input.files[0], 300, async dataUrl => {
+      const name = editingPhotoFor;
+      photoCache[name] = dataUrl;
+      await sb.from('profiles').upsert(
+        { name, photo: dataUrl, updated_at: new Date().toISOString() },
+        { onConflict: 'name' }
+      );
       renderProfiles();
       const current = getUser();
-      if (current === editingPhotoFor) showMenu(current);
+      if (current === name) showMenu(current);
     });
   }
 
@@ -415,11 +434,14 @@
   }
 
   // ===== INIT =====
-  renderProfiles();
-  const saved = getUser();
-  if (saved && MEMBERS.find(m => m.name === saved)) {
-    showMenu(saved);
-  }
+  (async () => {
+    await loadPhotos();
+    renderProfiles();
+    const saved = getUser();
+    if (saved && MEMBERS.find(m => m.name === saved)) {
+      showMenu(saved);
+    }
+  })();
 </script>
 </body>
 </html>
