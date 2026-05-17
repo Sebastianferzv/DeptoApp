@@ -369,7 +369,10 @@
     const current = getUser();
     document.getElementById('change-grid').innerHTML = MEMBERS.map(m => `
       <div class="change-option ${m.name === current ? 'current' : ''}" onclick="changeUser('${m.name}')">
-        ${avatarEl(m.name, 'cav')}
+        <div class="p-avatar-wrap" onclick="editPhoto(event,'${m.name}')">
+          ${avatarEl(m.name, 'cav')}
+          <div class="p-edit-btn">📷</div>
+        </div>
         <div class="cnm">${m.name}</div>
       </div>
     `).join('');
