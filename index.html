@@ -219,16 +219,13 @@
       width: 100%; padding: 0.7rem; background: var(--cream-dark); border: none;
       border-radius: 10px; color: var(--text-mid); font-size: 0.95rem; cursor: pointer;
     }
-
-    .p-avatar-wrap { position: relative; flex-shrink: 0; }
-    .p-edit-btn {
-      position: absolute; bottom: -2px; right: -2px;
-      width: 22px; height: 22px; border-radius: 50%;
-      background: var(--wood-dark); border: 2.5px solid var(--cream);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.65rem; color: white; cursor: pointer; line-height: 1;
-      pointer-events: all;
+    .btn-photo {
+      width: 100%; padding: 0.65rem; background: #FFF4E8;
+      border: 1.5px solid var(--cream-dark); border-radius: 10px;
+      color: var(--wood-dark); font-size: 0.9rem; cursor: pointer;
+      margin-bottom: 0.5rem;
     }
+    .btn-photo:hover { background: #FFE8C8; }
 
     .notif-card {
       background: rgba(255,248,200,0.15);
@@ -304,6 +301,7 @@
   <div class="modal">
     <div class="modal-title">¿Cambiar de usuario?</div>
     <div class="change-grid" id="change-grid"></div>
+    <button class="btn-photo" onclick="editCurrentPhoto()">📷 Cambiar mi foto de perfil</button>
     <button class="btn-cancel" onclick="closeChangeModal()">Cancelar</button>
   </div>
 </div>
@@ -355,10 +353,7 @@
   function renderProfiles() {
     document.getElementById('profiles-grid').innerHTML = MEMBERS.map(m => `
       <div class="profile-card" onclick="selectUser('${m.name}')">
-        <div class="p-avatar-wrap" onclick="editPhoto(event,'${m.name}')">
-          ${avatarEl(m.name, 'p-avatar')}
-          <div class="p-edit-btn">📷</div>
-        </div>
+        ${avatarEl(m.name, 'p-avatar')}
         <div class="p-name">${m.name}</div>
       </div>
     `).join('');
@@ -393,10 +388,7 @@
     const current = getUser();
     document.getElementById('change-grid').innerHTML = MEMBERS.map(m => `
       <div class="change-option ${m.name === current ? 'current' : ''}" onclick="changeUser('${m.name}')">
-        <div class="p-avatar-wrap" onclick="editPhoto(event,'${m.name}')">
-          ${avatarEl(m.name, 'cav')}
-          <div class="p-edit-btn">📷</div>
-        </div>
+        ${avatarEl(m.name, 'cav')}
         <div class="cnm">${m.name}</div>
       </div>
     `).join('');
@@ -506,9 +498,8 @@
   // ===== PHOTO EDITING =====
   let editingPhotoFor = null;
 
-  function editPhoto(e, name) {
-    e.stopPropagation();
-    editingPhotoFor = name;
+  function editCurrentPhoto() {
+    editingPhotoFor = getUser();
     const input = document.getElementById('photo-input');
     input.value = '';
     input.click();
@@ -526,6 +517,7 @@
       renderProfiles();
       const current = getUser();
       if (current === name) showMenu(current);
+      if (document.getElementById('change-modal').classList.contains('open')) openChangeModal();
     });
   }
 
