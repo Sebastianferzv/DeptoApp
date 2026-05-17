@@ -463,12 +463,15 @@
 
     const { data: tareas } = await sb.from('tareas').select('*');
     if (tareas) {
-      // Current week
-      for (const task of tareas) {
-        const person = _getResponsible(task, monday);
-        if (person?.name === name) {
-          const done = localStorage.getItem('deptoTaskDone_' + task.id + '_' + mondayStr);
-          if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
+      // Current week — solo si la semana ya comenzó
+      const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+      if (todayDate >= monday) {
+        for (const task of tareas) {
+          const person = _getResponsible(task, monday);
+          if (person?.name === name) {
+            const done = localStorage.getItem('deptoTaskDone_' + task.id + '_' + mondayStr);
+            if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
+          }
         }
       }
       // Overdue past weeks
