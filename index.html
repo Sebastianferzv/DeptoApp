@@ -52,6 +52,7 @@
       align-items: center;
       justify-content: center;
       padding: 2rem 1.25rem;
+      padding-top: calc(2rem + env(safe-area-inset-top));
       gap: 2.5rem;
     }
     .view.active { display: flex; }
@@ -114,7 +115,7 @@
 
     .user-btn {
       position: absolute;
-      top: 1.25rem;
+      top: calc(1.25rem + env(safe-area-inset-top));
       left: 1.25rem;
       display: flex;
       align-items: center;
