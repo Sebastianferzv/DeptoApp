@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/notify-almuerzo",
+      "schedule": "0 14 * * *"
+    }
+  ]
+}

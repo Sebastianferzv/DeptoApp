@@ -10,6 +10,13 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Depto">
+  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  <script>
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(function(OneSignal) {
+      return OneSignal.init({ appId: '060fe927-a87f-40fe-a6a0-0d1d7549c81b', notifyButton: { enable: false } });
+    });
+  </script>
   <style>
     :root {
       --wood-dark: #5C3D1E;
@@ -363,6 +370,15 @@
   function selectUser(name) {
     setUser(name);
     showMenu(name);
+    registerPush(name);
+  }
+
+  function registerPush(name) {
+    if (!window.OneSignalDeferred) return;
+    OneSignalDeferred.push(async function(OneSignal) {
+      await OneSignal.Notifications.requestPermission();
+      await OneSignal.User.addTag('user', name);
+    });
   }
 
   // ===== MENU =====
@@ -408,6 +424,7 @@
     setUser(name);
     showMenu(name);
     closeChangeModal();
+    registerPush(name);
   }
 
   // ===== NOTIFICATIONS =====
@@ -546,6 +563,7 @@
     const saved = getUser();
     if (saved && MEMBERS.find(m => m.name === saved)) {
       showMenu(saved);
+      registerPush(saved);
     }
   })();
 </script>
