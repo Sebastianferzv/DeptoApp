@@ -367,6 +367,13 @@
 
     /* ===== OVERDUE ===== */
     .overdue-card .week-header { background: #8B2515; }
+
+    .past-divider {
+      text-align: center; font-size: 0.78rem; color: var(--text-light);
+      padding: 0.5rem 0 0.25rem; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .past-week { opacity: 0.72; }
+    .past-week .week-header { background: var(--wood-mid); }
     .task-badge-overdue {
       font-size: 0.72rem; font-weight: bold; color: white;
       background: #B03020; border-radius: 6px; padding: 0.18rem 0.5rem;
@@ -556,6 +563,7 @@
 
   // ===== RENDER =====
   let visibleWeeks = 8;
+  let visiblePastWeeks = 0;
   const thisMonday = getThisMonday();
 
   async function renderWeeks() {
@@ -645,12 +653,42 @@
         </div>`;
     }
 
-    container.innerHTML = overdueHtml + html;
+    // ===== PAST WEEKS =====
+    let pastHtml = '';
+    if (visiblePastWeeks > 0) {
+      pastHtml = '<div class="past-divider">Semanas anteriores</div>';
+      for (let i = 1; i <= visiblePastWeeks; i++) {
+        const monday = addDays(thisMonday, -i * 7);
+        const range = formatWeekRange(monday);
+        const weekStr = toDateStr(monday);
+        const taskRows = tasksData.map(task => {
+          const person = getResponsible(task, monday);
+          if (!person) return '';
+          const done = isDone(task.id, weekStr);
+          return `
+            <div class="task-row${done ? ' done' : ''}">
+              ${photoAvatar(person.name, 'task-avatar')}
+              <div class="task-name">${esc(task.name)}</div>
+              <div class="task-person">${person.name}</div>
+            </div>`;
+        }).join('');
+        pastHtml += `
+          <div class="week-card past-week">
+            <div class="week-header">
+              <div class="week-label">${range}</div>
+            </div>
+            <div class="week-tasks">${taskRows || '<div style="padding:0.6rem 1rem;font-size:0.82rem;color:var(--text-light)">Sin tareas esta semana</div>'}</div>
+          </div>`;
+      }
+    }
+
+    container.innerHTML = overdueHtml + html + pastHtml;
     loadBtn.style.display = 'block';
   }
 
   async function loadMore() {
-    visibleWeeks += 8;
+    visibleWeeks += 4;
+    visiblePastWeeks += 4;
     await renderWeeks();
   }
 

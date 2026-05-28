@@ -557,6 +557,16 @@
   }
 
   // ===== INIT =====
+  // Show menu immediately (no flash of profile screen) if user is already saved
+  const _earlyUser = getUser();
+  if (_earlyUser && MEMBERS.find(m => m.name === _earlyUser)) {
+    document.getElementById('user-btn-name').textContent = _earlyUser;
+    const _av = document.getElementById('user-btn-avatar');
+    _av.style.background = memberColor(_earlyUser);
+    _av.textContent = _earlyUser[0];
+    showView('view-menu');
+  }
+
   (async () => {
     await loadPhotos();
     renderProfiles();
