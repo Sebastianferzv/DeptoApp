@@ -479,14 +479,23 @@
 
     const { data: tareas } = await sb.from('tareas').select('*');
     if (tareas) {
+      // Load completions for current week + past 12 weeks in one query
+      const pastWeekStrs = [];
+      for (let w = 0; w <= 12; w++) {
+        const d = new Date(monday); d.setDate(monday.getDate() - w * 7);
+        pastWeekStrs.push(_toDateStr(d));
+      }
+      const { data: completions } = await sb.from('task_completions')
+        .select('task_id, week_date').in('week_date', pastWeekStrs);
+      const doneKeys = new Set((completions ?? []).map(c => `${c.task_id}_${c.week_date}`));
+
       // Current week — solo si la semana ya comenzó
       const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
       if (todayDate >= monday) {
         for (const task of tareas) {
           const person = _getResponsible(task, monday);
-          if (person?.name === name) {
-            const done = localStorage.getItem('deptoTaskDone_' + task.id + '_' + mondayStr);
-            if (!done) alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
+          if (person?.name === name && !doneKeys.has(`${task.id}_${mondayStr}`)) {
+            alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
           }
         }
       }
@@ -498,7 +507,7 @@
         for (const task of tareas) {
           if (seen.has(task.id)) continue;
           const person = _getResponsible(task, prevMon);
-          if (person?.name === name && !localStorage.getItem('deptoTaskDone_' + task.id + '_' + prevStr)) {
+          if (person?.name === name && !doneKeys.has(`${task.id}_${prevStr}`)) {
             seen.add(task.id);
             alerts.push({ icon: '⚠️', text: `Tarea atrasada: ${task.name}`, u: 2 });
           }

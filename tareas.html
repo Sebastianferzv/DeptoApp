@@ -374,6 +374,10 @@
     }
     .past-week { opacity: 0.72; }
     .past-week .week-header { background: var(--wood-mid); }
+    .task-pending-badge {
+      font-size: 0.72rem; color: var(--text-light); white-space: nowrap; flex-shrink: 0;
+    }
+    .task-done-badge.with-info { font-size: 0.72rem; }
     .task-badge-overdue {
       font-size: 0.72rem; font-weight: bold; color: white;
       background: #B03020; border-radius: 6px; padding: 0.18rem 0.5rem;
@@ -485,13 +489,39 @@
 
   const currentUser = localStorage.getItem('deptoUser');
 
-  function isDone(taskId, weekStr) {
-    return !!localStorage.getItem('deptoTaskDone_' + taskId + '_' + weekStr);
+  // ===== COMPLETIONS (Supabase) =====
+  let completionsCache = {}; // key: `${task_id}_${week_date}` → row
+
+  async function loadCompletions() {
+    const from = toDateStr(addDays(thisMonday, -Math.max(12, visiblePastWeeks) * 7));
+    const to = toDateStr(thisMonday);
+    const { data } = await sb.from('task_completions')
+      .select('*').gte('week_date', from).lte('week_date', to);
+    completionsCache = {};
+    if (data) data.forEach(c => { completionsCache[`${c.task_id}_${c.week_date}`] = c; });
   }
 
-  function markTaskDone(taskId, weekStr) {
-    localStorage.setItem('deptoTaskDone_' + taskId + '_' + weekStr, '1');
-    renderWeeks();
+  function isDone(taskId, weekStr) {
+    return !!completionsCache[`${taskId}_${weekStr}`];
+  }
+
+  function getDoneInfo(taskId, weekStr) {
+    return completionsCache[`${taskId}_${weekStr}`] ?? null;
+  }
+
+  function fmtCompletedDate(iso) {
+    const d = new Date(iso);
+    return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`;
+  }
+
+  async function markTaskDone(taskId, weekStr) {
+    const now = new Date().toISOString();
+    await sb.from('task_completions').upsert(
+      { task_id: taskId, week_date: weekStr, completed_by: currentUser, completed_at: now },
+      { onConflict: 'task_id,week_date' }
+    );
+    completionsCache[`${taskId}_${weekStr}`] = { task_id: taskId, week_date: weekStr, completed_by: currentUser, completed_at: now };
+    await renderWeeks();
   }
 
   function getUrgencyClass() {
@@ -563,11 +593,12 @@
 
   // ===== RENDER =====
   let visibleWeeks = 8;
-  let visiblePastWeeks = 0;
+  let visiblePastWeeks = 2;
   const thisMonday = getThisMonday();
 
   async function renderWeeks() {
     await loadTasks();
+    await loadCompletions();
     const container = document.getElementById('weeks-list');
     const loadBtn = document.getElementById('load-more-btn');
 
@@ -599,7 +630,7 @@
               <div class="task-row">
                 ${photoAvatar(currentUser, 'task-avatar')}
                 <div class="task-name">${esc(task.name)}</div>
-                <span class="task-badge-overdue">Atrasada</span>
+                <button class="btn-task-done" onclick="markTaskDone('${task.id}','${prevStr}')">✓ Completar</button>
               </div>`);
           }
         }
@@ -615,34 +646,71 @@
       }
     }
 
-    // ===== WEEKS =====
+    // ===== PAST WEEKS (above current week) =====
+    let pastHtml = '';
+    if (visiblePastWeeks > 0) {
+      const pastCards = [];
+      for (let i = visiblePastWeeks; i >= 1; i--) {
+        const monday = addDays(thisMonday, -i * 7);
+        const range = formatWeekRange(monday);
+        const weekStr = toDateStr(monday);
+        const taskRows = tasksData.map(task => {
+          const person = getResponsible(task, monday);
+          if (!person) return '';
+          const doneInfo = getDoneInfo(task.id, weekStr);
+          const isMyTask = currentUser && person.name === currentUser;
+          let actionEl;
+          if (doneInfo) {
+            actionEl = `<span class="task-done-badge with-info">✓ ${doneInfo.completed_by} · ${fmtCompletedDate(doneInfo.completed_at)}</span>`;
+          } else if (isMyTask) {
+            actionEl = `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${weekStr}')">✓ Completar</button>`;
+          } else {
+            actionEl = '<span class="task-pending-badge">Pendiente</span>';
+          }
+          return `
+            <div class="task-row${doneInfo ? ' done' : ''}">
+              ${photoAvatar(person.name, 'task-avatar')}
+              <div class="task-name">${esc(task.name)}</div>
+              <div class="task-person">${person.name}</div>
+              ${actionEl}
+            </div>`;
+        }).join('');
+        pastCards.push(`
+          <div class="week-card past-week">
+            <div class="week-header"><div class="week-label">${range}</div></div>
+            <div class="week-tasks">${taskRows || '<div style="padding:0.6rem 1rem;font-size:0.82rem;color:var(--text-light)">Sin tareas esta semana</div>'}</div>
+          </div>`);
+      }
+      pastHtml = '<div class="past-divider">Semanas anteriores</div>' + pastCards.join('');
+    }
+
+    // ===== CURRENT + FUTURE WEEKS =====
     let html = '';
     for (let i = 0; i < visibleWeeks; i++) {
       const monday = addDays(thisMonday, i * 7);
       const isCurrent = i === 0;
       const range = formatWeekRange(monday);
       const urgencyClass = isCurrent ? getUrgencyClass() : '';
-
       const weekStr = toDateStr(monday);
       const taskRows = tasksData.map(task => {
         const person = getResponsible(task, monday);
         if (!person) return '';
-        const done = isDone(task.id, weekStr);
+        const doneInfo = getDoneInfo(task.id, weekStr);
         const isMyTask = isCurrent && currentUser && person.name === currentUser;
-        const actionBtn = isMyTask
-          ? (done
-              ? '<span class="task-done-badge">✓ Hecha</span>'
-              : `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${weekStr}')">✓ Completar</button>`)
-          : '';
+        let actionEl = '';
+        if (isCurrent) {
+          actionEl = doneInfo
+            ? '<span class="task-done-badge">✓ Hecha</span>'
+            : (isMyTask ? `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${weekStr}')">✓ Completar</button>` : '');
+        }
         return `
-          <div class="task-row${done && isMyTask ? ' done' : ''}">
+          <div class="task-row${doneInfo && isCurrent ? ' done' : ''}">
             ${photoAvatar(person.name, 'task-avatar')}
             <div class="task-name">${esc(task.name)}</div>
             <div class="task-person">${person.name}</div>
-            ${actionBtn}
+            ${actionEl}
           </div>`;
       }).join('');
-
       html += `
         <div class="week-card ${isCurrent ? 'current-week' : ''} ${urgencyClass}">
           <div class="week-header">
@@ -653,36 +721,7 @@
         </div>`;
     }
 
-    // ===== PAST WEEKS =====
-    let pastHtml = '';
-    if (visiblePastWeeks > 0) {
-      pastHtml = '<div class="past-divider">Semanas anteriores</div>';
-      for (let i = 1; i <= visiblePastWeeks; i++) {
-        const monday = addDays(thisMonday, -i * 7);
-        const range = formatWeekRange(monday);
-        const weekStr = toDateStr(monday);
-        const taskRows = tasksData.map(task => {
-          const person = getResponsible(task, monday);
-          if (!person) return '';
-          const done = isDone(task.id, weekStr);
-          return `
-            <div class="task-row${done ? ' done' : ''}">
-              ${photoAvatar(person.name, 'task-avatar')}
-              <div class="task-name">${esc(task.name)}</div>
-              <div class="task-person">${person.name}</div>
-            </div>`;
-        }).join('');
-        pastHtml += `
-          <div class="week-card past-week">
-            <div class="week-header">
-              <div class="week-label">${range}</div>
-            </div>
-            <div class="week-tasks">${taskRows || '<div style="padding:0.6rem 1rem;font-size:0.82rem;color:var(--text-light)">Sin tareas esta semana</div>'}</div>
-          </div>`;
-      }
-    }
-
-    container.innerHTML = overdueHtml + html + pastHtml;
+    container.innerHTML = overdueHtml + pastHtml + html;
     loadBtn.style.display = 'block';
   }
 
