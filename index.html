@@ -471,10 +471,26 @@
     const urgency = _getDayUrgency();
     const alerts = [];
 
+    const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
+
     const { data: alm } = await sb.from('almuerzo_assignments')
       .select('member_name').eq('date', today).maybeSingle();
     if (alm?.member_name === name) {
       alerts.push({ icon: '🍽️', text: 'Hoy te toca hacer el almuerzo', u: urgency });
+    }
+
+    // Check if user has signed up for any day this week
+    if (todayDate >= monday) {
+      const weekDates = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday); d.setDate(monday.getDate() + i);
+        weekDates.push(_toDateStr(d));
+      }
+      const { data: myAlm } = await sb.from('almuerzo_assignments')
+        .select('date').in('date', weekDates).eq('member_name', name);
+      if (!myAlm || myAlm.length === 0) {
+        alerts.push({ icon: '🍽️', text: 'Aún no te anotaste para hacer almuerzo esta semana', u: urgency });
+      }
     }
 
     const { data: tareas } = await sb.from('tareas').select('*');
@@ -490,7 +506,6 @@
       const doneKeys = new Set((completions ?? []).map(c => `${c.task_id}_${c.week_date}`));
 
       // Current week — solo si la semana ya comenzó
-      const todayDate = new Date(); todayDate.setHours(0, 0, 0, 0);
       if (todayDate >= monday) {
         for (const task of tareas) {
           const person = _getResponsible(task, monday);
