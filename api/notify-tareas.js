@@ -51,8 +51,8 @@ async function sendPush(memberName, taskName) {
     body: JSON.stringify({
       app_id: ONESIGNAL_APP_ID,
       filters: [{ field: 'tag', key: 'user', relation: '=', value: memberName }],
-      headings: { es: 'Depto 📋' },
-      contents: { es: `${memberName}, aún tienes una tarea pendiente esta semana: ${taskName}` },
+      headings: { en: 'Depto', es: 'Depto' },
+      contents: { en: `${memberName}, you have a pending task this week: ${taskName}`, es: `${memberName}, aún tienes una tarea pendiente esta semana: ${taskName}` },
       url: 'https://depto-app.vercel.app/tareas.html',
     }),
   }).then(r => r.json());

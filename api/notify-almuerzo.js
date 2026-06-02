@@ -50,8 +50,8 @@ export default async function handler(req, res) {
         body: JSON.stringify({
           app_id: ONESIGNAL_APP_ID,
           filters: [{ field: 'tag', key: 'user', relation: '=', value: name }],
-          headings: { es: 'Depto 🍽️' },
-          contents: { es: `${name}, aún no te anotaste para hacer almuerzo esta semana. ¡Elige un día!` },
+          headings: { en: 'Depto', es: 'Depto' },
+          contents: { en: `${name}, you haven't signed up for lunch this week!`, es: `${name}, aún no te anotaste para hacer almuerzo esta semana. ¡Elige un día!` },
           url: 'https://depto-app.vercel.app/almuerzo.html',
         }),
       }).then(r => r.json())
