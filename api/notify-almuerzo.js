@@ -53,6 +53,9 @@ export default async function handler(req, res) {
           headings: { en: 'Depto', es: 'Depto' },
           contents: { en: `${name}, you haven't signed up for lunch this week!`, es: `${name}, aún no te anotaste para hacer almuerzo esta semana. ¡Elige un día!` },
           url: 'https://depto-app.vercel.app/almuerzo.html',
+          priority: 10,
+          content_available: true,
+          mutable_content: true,
         }),
       }).then(r => r.json())
     ));

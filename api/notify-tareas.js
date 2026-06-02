@@ -54,6 +54,9 @@ async function sendPush(memberName, taskName) {
       headings: { en: 'Depto', es: 'Depto' },
       contents: { en: `${memberName}, you have a pending task this week: ${taskName}`, es: `${memberName}, aún tienes una tarea pendiente esta semana: ${taskName}` },
       url: 'https://depto-app.vercel.app/tareas.html',
+      priority: 10,
+      content_available: true,
+      mutable_content: true,
     }),
   }).then(r => r.json());
 }
