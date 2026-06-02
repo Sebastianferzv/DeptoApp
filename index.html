@@ -376,8 +376,10 @@
   function registerPush(name) {
     if (!window.OneSignalDeferred) return;
     OneSignalDeferred.push(async function(OneSignal) {
-      await OneSignal.Notifications.requestPermission();
       await OneSignal.User.addTag('user', name);
+      if (!OneSignal.Notifications.permission) {
+        await OneSignal.Notifications.requestPermission();
+      }
     });
   }
 
