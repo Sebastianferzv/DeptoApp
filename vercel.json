@@ -6,7 +6,7 @@
     },
     {
       "path": "/api/notify-tareas",
-      "schedule": "0 14 * * 4"
+      "schedule": "0 13 * * *"
     }
   ]
 }

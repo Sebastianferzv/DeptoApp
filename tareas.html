@@ -615,7 +615,7 @@
 
     // ===== OVERDUE =====
     let overdueHtml = '';
-    if (currentUser) {
+    {
       const overdueRows = [];
       const seen = new Set();
       for (let w = 1; w <= 12; w++) {
@@ -624,13 +624,18 @@
         for (const task of tasksData) {
           if (seen.has(task.id)) continue;
           const person = getResponsible(task, prevMon);
-          if (person?.name === currentUser && !isDone(task.id, prevStr)) {
+          if (person && !isDone(task.id, prevStr)) {
             seen.add(task.id);
+            const isMyTask = currentUser && person.name === currentUser;
+            const actionEl = isMyTask
+              ? `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${prevStr}')">✓ Completar</button>`
+              : '<span class="task-pending-badge">Pendiente</span>';
             overdueRows.push(`
               <div class="task-row">
-                ${photoAvatar(currentUser, 'task-avatar')}
+                ${photoAvatar(person.name, 'task-avatar')}
                 <div class="task-name">${esc(task.name)}</div>
-                <button class="btn-task-done" onclick="markTaskDone('${task.id}','${prevStr}')">✓ Completar</button>
+                <div class="task-person">${person.name}</div>
+                ${actionEl}
               </div>`);
           }
         }

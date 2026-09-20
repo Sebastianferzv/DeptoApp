@@ -41,7 +41,7 @@ async function sbFetch(path) {
   return res.json();
 }
 
-async function sendPush(memberName, taskName) {
+async function sendPush(memberName, contentEn, contentEs) {
   return fetch('https://onesignal.com/api/v1/notifications', {
     method: 'POST',
     headers: {
@@ -52,7 +52,7 @@ async function sendPush(memberName, taskName) {
       app_id: ONESIGNAL_APP_ID,
       filters: [{ field: 'tag', key: 'user', relation: '=', value: memberName }],
       headings: { en: 'Depto', es: 'Depto' },
-      contents: { en: `${memberName}, you have a pending task this week: ${taskName}`, es: `${memberName}, aún tienes una tarea pendiente esta semana: ${taskName}` },
+      contents: { en: contentEn, es: contentEs },
       url: 'https://depto-app.vercel.app/tareas.html',
       priority: 10,
       content_available: true,
@@ -65,27 +65,56 @@ export default async function handler(req, res) {
   try {
     const monday = getThisMonday();
     const mondayStr = toDateStr(monday);
+    const isThursday = new Date().getDay() === 4;
 
     const [tasks, completions] = await Promise.all([
       sbFetch('tareas?select=*&order=created_at'),
-      sbFetch(`task_completions?week_date=eq.${mondayStr}&select=task_id`),
+      sbFetch('task_completions?select=task_id,week_date'),
     ]);
 
-    const doneTaskIds = new Set(completions.map(c => c.task_id));
-
-    // Find which member has a pending task this week
+    const doneKeys = new Set(completions.map(c => `${c.task_id}_${c.week_date}`));
     const toNotify = [];
-    for (const task of tasks) {
-      if (doneTaskIds.has(task.id)) continue;
-      const responsible = getResponsible(task, monday);
-      if (responsible) toNotify.push({ name: responsible, taskName: task.name });
+
+    // Current week pending — only on Thursdays, same as before
+    if (isThursday) {
+      for (const task of tasks) {
+        if (doneKeys.has(`${task.id}_${mondayStr}`)) continue;
+        const responsible = getResponsible(task, monday);
+        if (responsible) {
+          toNotify.push({
+            name: responsible,
+            en: `${responsible}, you have a pending task this week: ${task.name}`,
+            es: `${responsible}, aún tienes una tarea pendiente esta semana: ${task.name}`,
+          });
+        }
+      }
+    }
+
+    // Overdue past weeks — every day
+    const seen = new Set();
+    for (let w = 1; w <= 12; w++) {
+      const prevMon = new Date(monday);
+      prevMon.setDate(monday.getDate() - w * 7);
+      const prevStr = toDateStr(prevMon);
+      for (const task of tasks) {
+        if (seen.has(task.id)) continue;
+        const responsible = getResponsible(task, prevMon);
+        if (responsible && !doneKeys.has(`${task.id}_${prevStr}`)) {
+          seen.add(task.id);
+          toNotify.push({
+            name: responsible,
+            en: `${responsible}, you have an overdue task: ${task.name}`,
+            es: `${responsible}, tienes una tarea atrasada: ${task.name}`,
+          });
+        }
+      }
     }
 
     if (toNotify.length === 0) {
-      return res.status(200).json({ sent: 0, message: 'Todas las tareas completadas' });
+      return res.status(200).json({ sent: 0, message: 'Sin tareas pendientes ni atrasadas' });
     }
 
-    const results = await Promise.all(toNotify.map(({ name, taskName }) => sendPush(name, taskName)));
+    const results = await Promise.all(toNotify.map(({ name, en, es }) => sendPush(name, en, es)));
     return res.status(200).json({ sent: toNotify.length, toNotify, results });
   } catch (err) {
     return res.status(500).json({ error: err.message });
