@@ -287,11 +287,6 @@
     <div id="notifications" style="display:none; width:100%; max-width:360px;"></div>
 
     <div class="apps-grid">
-      <a href="lista.html" class="app-card">
-        <div class="app-icon">🛒</div>
-        <div class="app-name">Lista de compras</div>
-        <div class="app-desc">Lo que falta en el depto</div>
-      </a>
       <a href="almuerzo.html" class="app-card">
         <div class="app-icon">🍽️</div>
         <div class="app-name">Almuerzos</div>
@@ -449,8 +444,13 @@
     const start = new Date(task.start_date); start.setHours(0,0,0,0);
     const diff = _weeksBetween(start, monday);
     if (diff < 0 || diff % task.interval_weeks !== 0) return null;
-    const slot = Math.floor(diff / task.interval_weeks) % MEMBERS.length;
-    return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
+    const turn = Math.floor(diff / task.interval_weeks);
+    if (Array.isArray(task.team_a) && task.team_a.length) {
+      const teamA = task.team_a.map(i => MEMBERS[i]);
+      const teamB = MEMBERS.filter((_, i) => !task.team_a.includes(i));
+      return (task.start_person_index + turn) % 2 === 0 ? teamA : teamB;
+    }
+    return [MEMBERS[(task.start_person_index + turn) % MEMBERS.length]];
   }
 
   function _urgencyStyle(u) {
@@ -515,8 +515,8 @@
       // Current week — solo si la semana ya comenzó
       if (todayDate >= monday) {
         for (const task of tareas) {
-          const person = _getResponsible(task, monday);
-          if (person?.name === name && !doneKeys.has(`${task.id}_${mondayStr}`)) {
+          const people = _getResponsible(task, monday);
+          if (people?.some(p => p.name === name) && !doneKeys.has(`${task.id}_${mondayStr}`)) {
             alerts.push({ icon: '📋', text: `Tarea pendiente: ${task.name}`, u: urgency });
           }
         }
@@ -528,8 +528,8 @@
         const prevStr = _toDateStr(prevMon);
         for (const task of tareas) {
           if (seen.has(task.id)) continue;
-          const person = _getResponsible(task, prevMon);
-          if (person?.name === name && !doneKeys.has(`${task.id}_${prevStr}`)) {
+          const people = _getResponsible(task, prevMon);
+          if (people?.some(p => p.name === name) && !doneKeys.has(`${task.id}_${prevStr}`)) {
             seen.add(task.id);
             alerts.push({ icon: '⚠️', text: `Tarea atrasada: ${task.name}`, u: 2 });
           }

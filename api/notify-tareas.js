@@ -30,8 +30,13 @@ function getResponsible(task, monday) {
   start.setHours(0, 0, 0, 0);
   const diff = weeksBetween(start, monday);
   if (diff < 0 || diff % task.interval_weeks !== 0) return null;
-  const slot = Math.floor(diff / task.interval_weeks) % MEMBERS.length;
-  return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
+  const turn = Math.floor(diff / task.interval_weeks);
+  if (Array.isArray(task.team_a) && task.team_a.length) {
+    const teamA = task.team_a.map(i => MEMBERS[i]);
+    const teamB = MEMBERS.filter((_, i) => !task.team_a.includes(i));
+    return (task.start_person_index + turn) % 2 === 0 ? teamA : teamB;
+  }
+  return [MEMBERS[(task.start_person_index + turn) % MEMBERS.length]];
 }
 
 async function sbFetch(path) {
@@ -79,8 +84,8 @@ export default async function handler(req, res) {
     if (isThursday) {
       for (const task of tasks) {
         if (doneKeys.has(`${task.id}_${mondayStr}`)) continue;
-        const responsible = getResponsible(task, monday);
-        if (responsible) {
+        const people = getResponsible(task, monday);
+        for (const responsible of people ?? []) {
           toNotify.push({
             name: responsible,
             en: `${responsible}, you have a pending task this week: ${task.name}`,
@@ -98,14 +103,16 @@ export default async function handler(req, res) {
       const prevStr = toDateStr(prevMon);
       for (const task of tasks) {
         if (seen.has(task.id)) continue;
-        const responsible = getResponsible(task, prevMon);
-        if (responsible && !doneKeys.has(`${task.id}_${prevStr}`)) {
+        const people = getResponsible(task, prevMon);
+        if (people && !doneKeys.has(`${task.id}_${prevStr}`)) {
           seen.add(task.id);
-          toNotify.push({
-            name: responsible,
-            en: `${responsible}, you have an overdue task: ${task.name}`,
-            es: `${responsible}, tienes una tarea atrasada: ${task.name}`,
-          });
+          for (const responsible of people) {
+            toNotify.push({
+              name: responsible,
+              en: `${responsible}, you have an overdue task: ${task.name}`,
+              es: `${responsible}, tienes una tarea atrasada: ${task.name}`,
+            });
+          }
         }
       }
     }

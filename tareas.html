@@ -179,6 +179,21 @@
       white-space: nowrap;
     }
 
+    .avatar-stack { display: flex; flex-shrink: 0; }
+    .avatar-stack .task-avatar + .task-avatar { margin-left: -10px; box-shadow: 0 0 0 2px var(--cream); }
+
+    /* Type toggle */
+    .type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+    .type-opt {
+      background: var(--cream-dark); border: 2px solid transparent; border-radius: 10px;
+      padding: 0.6rem 0.5rem; text-align: center; cursor: pointer;
+      font-size: 0.88rem; font-weight: bold; color: var(--text-dark); transition: all 0.15s;
+    }
+    .type-opt:hover { border-color: var(--wood-mid); background: #FFF4E8; }
+    .type-opt.active { border-color: var(--wood-dark); background: #FFF4E8; box-shadow: 0 0 0 1px var(--wood-dark); }
+    .type-opt .sub { display: block; font-size: 0.7rem; font-weight: normal; color: var(--text-light); margin-top: 0.15rem; }
+    .member-opt .team-tag { font-size: 0.62rem; color: var(--text-light); font-weight: bold; min-height: 0.8rem; }
+
     /* ===== LOAD MORE ===== */
     .load-more-btn {
       width: 100%;
@@ -419,6 +434,11 @@
       </div>
 
       <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <div class="type-toggle" id="type-toggle"></div>
+      </div>
+
+      <div class="form-group">
         <label class="form-label">Cada cuántas semanas rota (intervalo entre turnos)</label>
         <div class="weeks-selector">
           <button class="weeks-btn" id="btn-weeks-minus" onclick="changeWeeks(-1)">−</button>
@@ -429,8 +449,14 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">¿Quién empieza?</label>
+        <label class="form-label" id="member-label">¿Quién empieza?</label>
         <div class="member-row" id="member-row"></div>
+        <div class="weeks-hint" id="team-hint"></div>
+      </div>
+
+      <div class="form-group" id="team-start-group" style="display:none">
+        <label class="form-label">¿Qué equipo empieza?</label>
+        <div class="type-toggle" id="team-start-row"></div>
       </div>
 
       <div class="modal-actions">
@@ -587,8 +613,34 @@
     start.setHours(0, 0, 0, 0);
     const diff = weeksBetween(start, weekMonday);
     if (diff < 0 || diff % task.interval_weeks !== 0) return null;
-    const slot = Math.floor(diff / task.interval_weeks) % MEMBERS.length;
-    return MEMBERS[(task.start_person_index + slot) % MEMBERS.length];
+    const turn = Math.floor(diff / task.interval_weeks);
+    if (isPairTask(task)) {
+      const [teamA, teamB] = getTeams(task);
+      return (task.start_person_index + turn) % 2 === 0 ? teamA : teamB;
+    }
+    return [MEMBERS[(task.start_person_index + turn) % MEMBERS.length]];
+  }
+
+  function isPairTask(task) {
+    return Array.isArray(task.team_a) && task.team_a.length > 0;
+  }
+
+  function getTeams(task) {
+    const teamA = task.team_a.map(i => MEMBERS[i]);
+    const teamB = MEMBERS.filter((_, i) => !task.team_a.includes(i));
+    return [teamA, teamB];
+  }
+
+  function teamNames(people) {
+    return people.map(p => p.name).join(' y ');
+  }
+
+  function peopleAvatars(people) {
+    return `<div class="avatar-stack">${people.map(p => photoAvatar(p.name, 'task-avatar')).join('')}</div>`;
+  }
+
+  function includesUser(people) {
+    return !!currentUser && people.some(p => p.name === currentUser);
   }
 
   // ===== RENDER =====
@@ -623,18 +675,18 @@
         const prevStr = toDateStr(prevMon);
         for (const task of tasksData) {
           if (seen.has(task.id)) continue;
-          const person = getResponsible(task, prevMon);
-          if (person && !isDone(task.id, prevStr)) {
+          const people = getResponsible(task, prevMon);
+          if (people && !isDone(task.id, prevStr)) {
             seen.add(task.id);
-            const isMyTask = currentUser && person.name === currentUser;
+            const isMyTask = includesUser(people);
             const actionEl = isMyTask
               ? `<button class="btn-task-done" onclick="markTaskDone('${task.id}','${prevStr}')">✓ Completar</button>`
               : '<span class="task-pending-badge">Pendiente</span>';
             overdueRows.push(`
               <div class="task-row">
-                ${photoAvatar(person.name, 'task-avatar')}
+                ${peopleAvatars(people)}
                 <div class="task-name">${esc(task.name)}</div>
-                <div class="task-person">${person.name}</div>
+                <div class="task-person">${teamNames(people)}</div>
                 ${actionEl}
               </div>`);
           }
@@ -660,10 +712,10 @@
         const range = formatWeekRange(monday);
         const weekStr = toDateStr(monday);
         const taskRows = tasksData.map(task => {
-          const person = getResponsible(task, monday);
-          if (!person) return '';
+          const people = getResponsible(task, monday);
+          if (!people) return '';
           const doneInfo = getDoneInfo(task.id, weekStr);
-          const isMyTask = currentUser && person.name === currentUser;
+          const isMyTask = includesUser(people);
           let actionEl;
           if (doneInfo) {
             actionEl = `<span class="task-done-badge with-info">✓ ${doneInfo.completed_by} · ${fmtCompletedDate(doneInfo.completed_at)}</span>`;
@@ -674,9 +726,9 @@
           }
           return `
             <div class="task-row${doneInfo ? ' done' : ''}">
-              ${photoAvatar(person.name, 'task-avatar')}
+              ${peopleAvatars(people)}
               <div class="task-name">${esc(task.name)}</div>
-              <div class="task-person">${person.name}</div>
+              <div class="task-person">${teamNames(people)}</div>
               ${actionEl}
             </div>`;
         }).join('');
@@ -698,10 +750,10 @@
       const urgencyClass = isCurrent ? getUrgencyClass() : '';
       const weekStr = toDateStr(monday);
       const taskRows = tasksData.map(task => {
-        const person = getResponsible(task, monday);
-        if (!person) return '';
+        const people = getResponsible(task, monday);
+        if (!people) return '';
         const doneInfo = getDoneInfo(task.id, weekStr);
-        const isMyTask = isCurrent && currentUser && person.name === currentUser;
+        const isMyTask = isCurrent && includesUser(people);
         let actionEl = '';
         if (isCurrent) {
           actionEl = doneInfo
@@ -710,9 +762,9 @@
         }
         return `
           <div class="task-row${doneInfo && isCurrent ? ' done' : ''}">
-            ${photoAvatar(person.name, 'task-avatar')}
+            ${peopleAvatars(people)}
             <div class="task-name">${esc(task.name)}</div>
-            <div class="task-person">${person.name}</div>
+            <div class="task-person">${teamNames(people)}</div>
             ${actionEl}
           </div>`;
       }).join('');
@@ -739,10 +791,17 @@
   // ===== ADD MODAL =====
   let formWeeks = 1;
   let formPersonIndex = 0;
+  let formPair = false;
+  let formTeamA = [0, 1];
+  let formTeamStart = 0;
 
   function openAddModal() {
     formWeeks = 1;
     formPersonIndex = 0;
+    formPair = false;
+    formTeamA = [0, 1];
+    formTeamStart = 0;
+    renderTypeToggle();
     document.getElementById('task-name-input').value = '';
     document.getElementById('btn-add-task').disabled = true;
     updateWeeksDisplay();
@@ -767,18 +826,66 @@
   function updateWeeksDisplay() {
     document.getElementById('weeks-display').textContent = formWeeks;
     document.getElementById('btn-weeks-minus').disabled = formWeeks <= 1;
-    const total = formWeeks * MEMBERS.length;
+    const slots = formPair ? 2 : MEMBERS.length;
+    const unit = formPair ? 'equipos' : 'personas';
+    const total = formWeeks * slots;
     document.getElementById('weeks-hint').textContent =
-      `Turno de 1 semana, luego ${formWeeks} semana${formWeeks > 1 ? 's' : ''} hasta el siguiente. Ciclo completo: ${total} semanas (${formWeeks} × ${MEMBERS.length} personas).`;
+      `Turno de 1 semana, luego ${formWeeks} semana${formWeeks > 1 ? 's' : ''} hasta el siguiente. Ciclo completo: ${total} semanas (${formWeeks} × ${slots} ${unit}).`;
+  }
+
+  function renderTypeToggle() {
+    document.getElementById('type-toggle').innerHTML = `
+      <div class="type-opt ${!formPair ? 'active' : ''}" onclick="setPair(false)">👤 Individual<span class="sub">Rota entre los 4</span></div>
+      <div class="type-opt ${formPair ? 'active' : ''}" onclick="setPair(true)">👥 En pareja<span class="sub">2 equipos se turnan</span></div>`;
+  }
+
+  function setPair(v) {
+    formPair = v;
+    renderTypeToggle();
+    renderMemberRow();
+    updateWeeksDisplay();
+    updateSubmitState();
   }
 
   function renderMemberRow() {
-    document.getElementById('member-row').innerHTML = MEMBERS.map((m, i) => `
-      <div class="member-opt ${i === formPersonIndex ? 'active' : ''}" onclick="selectPerson(${i})">
-        <div class="av" style="background:${m.color}">${m.name[0]}</div>
-        <div class="nm">${m.name}</div>
-      </div>
-    `).join('');
+    const row = document.getElementById('member-row');
+    const label = document.getElementById('member-label');
+    const hint = document.getElementById('team-hint');
+    const startGroup = document.getElementById('team-start-group');
+    if (!formPair) {
+      label.textContent = '¿Quién empieza?';
+      hint.textContent = '';
+      startGroup.style.display = 'none';
+      row.innerHTML = MEMBERS.map((m, i) => `
+        <div class="member-opt ${i === formPersonIndex ? 'active' : ''}" onclick="selectPerson(${i})">
+          <div class="av" style="background:${m.color}">${m.name[0]}</div>
+          <div class="nm">${m.name}</div>
+        </div>
+      `).join('');
+      return;
+    }
+    label.textContent = 'Equipo 1 (elige 2)';
+    const complete = formTeamA.length === 2;
+    row.innerHTML = MEMBERS.map((m, i) => {
+      const inA = formTeamA.includes(i);
+      return `
+        <div class="member-opt ${inA ? 'active' : ''}" onclick="toggleTeamMember(${i})">
+          <div class="av" style="background:${m.color}">${m.name[0]}</div>
+          <div class="nm">${m.name}</div>
+          <div class="team-tag">${inA ? 'Equipo 1' : (complete ? 'Equipo 2' : '')}</div>
+        </div>`;
+    }).join('');
+    startGroup.style.display = complete ? 'block' : 'none';
+    if (complete) {
+      const teamA = formTeamA.map(i => MEMBERS[i]);
+      const teamB = MEMBERS.filter((_, i) => !formTeamA.includes(i));
+      hint.textContent = `Equipo 1: ${teamNames(teamA)} · Equipo 2: ${teamNames(teamB)}`;
+      document.getElementById('team-start-row').innerHTML = [teamA, teamB].map((t, k) => `
+        <div class="type-opt ${formTeamStart === k ? 'active' : ''}" onclick="selectTeamStart(${k})">Equipo ${k + 1}<span class="sub">${teamNames(t)}</span></div>
+      `).join('');
+    } else {
+      hint.textContent = 'Toca 2 personas para el equipo 1; las otras 2 quedan en el equipo 2.';
+    }
   }
 
   function selectPerson(i) {
@@ -786,19 +893,43 @@
     renderMemberRow();
   }
 
-  document.getElementById('task-name-input').addEventListener('input', function() {
-    document.getElementById('btn-add-task').disabled = !this.value.trim();
-  });
+  function toggleTeamMember(i) {
+    if (formTeamA.includes(i)) {
+      formTeamA = formTeamA.filter(x => x !== i);
+    } else if (formTeamA.length < 2) {
+      formTeamA = [...formTeamA, i].sort();
+    } else {
+      formTeamA = [formTeamA[1], i].sort();
+    }
+    renderMemberRow();
+    updateSubmitState();
+  }
+
+  function selectTeamStart(k) {
+    formTeamStart = k;
+    renderMemberRow();
+  }
+
+  function updateSubmitState() {
+    const hasName = !!document.getElementById('task-name-input').value.trim();
+    document.getElementById('btn-add-task').disabled = !hasName || (formPair && formTeamA.length !== 2);
+  }
+
+  document.getElementById('task-name-input').addEventListener('input', updateSubmitState);
 
   async function submitTask() {
     const name = document.getElementById('task-name-input').value.trim();
     if (!name) return;
-    await sb.from('tareas').insert({
+    if (formPair && formTeamA.length !== 2) return;
+    const row = {
       name,
       interval_weeks: formWeeks,
       start_date: toDateStr(thisMonday),
-      start_person_index: formPersonIndex
-    });
+      start_person_index: formPair ? formTeamStart : formPersonIndex
+    };
+    if (formPair) row.team_a = formTeamA;
+    const { error } = await sb.from('tareas').insert(row);
+    if (error) { alert('No se pudo guardar la tarea: ' + error.message); return; }
     closeAddModal();
     await renderWeeks();
   }
@@ -824,14 +955,20 @@
       return;
     }
     el.innerHTML = tasksData.map(task => {
-      const starter = MEMBERS[task.start_person_index];
+      let starterText;
+      if (isPairTask(task)) {
+        const teams = getTeams(task);
+        starterText = `en pareja: ${teamNames(teams[0])} / ${teamNames(teams[1])} · empiezan ${teamNames(teams[task.start_person_index % 2])}`;
+      } else {
+        starterText = `empieza ${MEMBERS[task.start_person_index].name}`;
+      }
       return `
         <div class="manage-task-item">
           <div class="manage-task-info">
             <div class="manage-task-name">${esc(task.name)}</div>
             <div class="manage-task-meta">
               Rota cada ${task.interval_weeks} semana${task.interval_weeks > 1 ? 's' : ''}
-              · empieza ${starter.name}
+              · ${starterText}
             </div>
           </div>
           <button class="btn-delete" onclick="deleteTask('${esc(task.id)}')">Eliminar</button>
