@@ -558,11 +558,12 @@
     if (!input.files.length || !editingPhotoFor) return;
     resizeImage(input.files[0], 300, async dataUrl => {
       const name = editingPhotoFor;
-      photoCache[name] = dataUrl;
-      await sb.from('profiles').upsert(
+      const { error } = await sb.from('profiles').upsert(
         { name, photo: dataUrl, updated_at: new Date().toISOString() },
         { onConflict: 'name' }
       );
+      if (error) { alert('La app no pudo guardar la foto: ' + error.message); return; }
+      photoCache[name] = dataUrl;
       renderProfiles();
       const current = getUser();
       if (current === name) showMenu(current);
@@ -582,8 +583,10 @@
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
         cb(canvas.toDataURL('image/jpeg', 0.82));
       };
+      img.onerror = () => alert('La app no pudo abrir esa imagen. Prueba con otra foto o sacando una nueva.');
       img.src = e.target.result;
     };
+    reader.onerror = () => alert('La app no pudo leer la foto desde el teléfono. Prueba con otra foto o sacando una nueva.');
     reader.readAsDataURL(file);
   }
 
